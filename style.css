@@ -43,7 +43,10 @@ p { margin: 0; line-height: 1.5; }
 .baseline-card { border: 1px solid var(--line); border-radius: 6px; padding: 11px 12px; background: #fafaf8; }
 .baseline-card h3 { margin: 0 0 8px; }
 .baseline-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.baseline-card li + li { margin-top: 4px; }
+.baseline-card li + li { margin-top: 8px; }
+.baseline-item { padding-right: 2px; }
+.baseline-text { display: block; color: var(--text); }
+.baseline-meta { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
 .agent-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .agent-chip { min-width: 170px; border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; display: grid; gap: 3px; background: #fafaf8; }
 .agent-chip strong { font-size: 13px; }
