@@ -3,7 +3,7 @@ window.WEAVEMAP = {
   initialized: false,
   project: {
     name: "Uninitialized project",
-    summary: "Ask your AI to read weavemap/AGENTS.md, inspect the host project, and initialize weavemap/state.js.",
+    summary: "Ask your AI to read weavemap/PROTOCOL.md and use WeaveMap to manage this project.",
     phase: "Planning"
   },
   requirements: [],
