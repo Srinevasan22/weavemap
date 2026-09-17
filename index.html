@@ -13,7 +13,7 @@
         <div class="brand-row">
           <div class="brand">WeaveMap</div>
           <button id="update-button" class="version-badge" type="button" title="View safe update instructions">
-            <strong id="runtime-version">v0.6.0</strong>
+            <strong id="runtime-version">v0.6.1</strong>
             <span id="schema-version">state schema</span>
           </button>
         </div>
@@ -115,7 +115,7 @@
   <dialog id="update-dialog">
     <button class="dialog-close update-close" aria-label="Close">×</button>
     <div class="update-detail">
-      <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v0.6.0</span></div>
+      <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v0.6.1</span></div>
       <h2>Update WeaveMap safely</h2>
       <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace that file with the blank template from the WeaveMap repository.</p>
       <ol>
@@ -137,5 +137,262 @@
 
   <script src="state.js"></script>
   <script src="app.js"></script>
+  <script>
+    (() => {
+      "use strict";
+
+      const PATCH_VERSION = "0.6.1";
+      const CURRENT_SCHEMA_VERSION = 4;
+      let safeStateFileHandle = null;
+
+      function setPatchedVersion() {
+        window.WEAVEMAP_RUNTIME = Object.freeze({
+          version: PATCH_VERSION,
+          schemaVersion: CURRENT_SCHEMA_VERSION
+        });
+        const runtime = document.getElementById("runtime-version");
+        const updateRuntime = document.getElementById("update-runtime-version");
+        if (runtime) runtime.textContent = `v${PATCH_VERSION}`;
+        if (updateRuntime) updateRuntime.textContent = `v${PATCH_VERSION}`;
+        const projectName = window.WEAVEMAP?.project?.name || "Project";
+        document.title = `${projectName} · WeaveMap v${PATCH_VERSION}`;
+      }
+
+      function parseStateSource(source) {
+        const match = String(source).match(/^\s*window\.WEAVEMAP\s*=\s*([\s\S]*);\s*$/);
+        if (!match) {
+          throw new Error("The selected file is not a valid WeaveMap state.js file.");
+        }
+
+        const payload = match[1].trim();
+        let parsed;
+        try {
+          parsed = JSON.parse(payload);
+        } catch {
+          // state.js is already executed by the observer. This fallback only supports
+          // existing JSON-compatible object-literal files that are not strict JSON yet.
+          parsed = Function(`\"use strict\"; return (${payload});`)();
+        }
+
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("state.js did not contain a valid WeaveMap state object.");
+        }
+        return parsed;
+      }
+
+      function serializeState(state) {
+        return `window.WEAVEMAP = ${JSON.stringify(state, null, 2)};\n`;
+      }
+
+      function mergeHumanNote(state, taskId, note) {
+        if (Number(state.schemaVersion || 0) !== CURRENT_SCHEMA_VERSION) {
+          throw new Error(`This runtime expects state schema v${CURRENT_SCHEMA_VERSION}. Update or migrate WeaveMap before saving notes.`);
+        }
+        if (!Array.isArray(state.tasks)) {
+          throw new Error("The latest state.js has no valid tasks array.");
+        }
+
+        const task = state.tasks.find((entry) => entry?.id === taskId);
+        if (!task) {
+          throw new Error(`${taskId} no longer exists in the latest state.js. Reopen WeaveMap to see the current project state.`);
+        }
+        if (!Array.isArray(task.notes)) task.notes = [];
+        if (!task.notes.every((entry) => typeof entry === "string")) {
+          throw new Error(`${taskId} has invalid notes in the latest state.js.`);
+        }
+        task.notes.push(note);
+        return task;
+      }
+
+      function downloadStateFile(content) {
+        const blob = new Blob([content], { type: "text/javascript;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "state.js";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+
+      async function getDirectStateHandle() {
+        if (safeStateFileHandle) return safeStateFileHandle;
+        const handles = await window.showOpenFilePicker({
+          multiple: false,
+          types: [{
+            description: "WeaveMap state.js",
+            accept: { "text/javascript": [".js"] }
+          }]
+        });
+        const handle = handles[0] || null;
+        if (!handle || handle.name !== "state.js") {
+          throw new Error("Select this project's weavemap/state.js file.");
+        }
+        safeStateFileHandle = handle;
+        return handle;
+      }
+
+      async function persistMergedNoteDirect(taskId, note) {
+        const handle = await getDirectStateHandle();
+
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const before = await handle.getFile();
+          const latestState = parseStateSource(await before.text());
+          const latestTask = mergeHumanNote(latestState, taskId, note);
+
+          // Check once more immediately before writing. If an AI changed the file
+          // while we were preparing the merge, discard this candidate and retry
+          // against the newer file instead of overwriting it.
+          const check = await handle.getFile();
+          if (check.lastModified !== before.lastModified || check.size !== before.size) {
+            continue;
+          }
+
+          const writable = await handle.createWritable();
+          await writable.write(serializeState(latestState));
+          await writable.close();
+          return { mode: "direct", task: latestTask };
+        }
+
+        throw new Error("state.js is changing right now. Wait for the AI write to finish, then save the note again.");
+      }
+
+      function chooseCurrentStateFile() {
+        return new Promise((resolve, reject) => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".js,text/javascript,application/javascript";
+          input.hidden = true;
+          document.body.appendChild(input);
+
+          const cleanup = () => input.remove();
+          input.addEventListener("change", () => {
+            const file = input.files?.[0];
+            cleanup();
+            if (!file) {
+              reject(new DOMException("No file selected.", "AbortError"));
+              return;
+            }
+            if (file.name !== "state.js") {
+              reject(new Error("Select this project's current weavemap/state.js file."));
+              return;
+            }
+            resolve(file);
+          }, { once: true });
+          input.addEventListener("cancel", () => {
+            cleanup();
+            reject(new DOMException("File selection cancelled.", "AbortError"));
+          }, { once: true });
+          input.click();
+        });
+      }
+
+      async function persistMergedNoteFallback(taskId, note) {
+        const file = await chooseCurrentStateFile();
+        const latestState = parseStateSource(await file.text());
+        const latestTask = mergeHumanNote(latestState, taskId, note);
+        downloadStateFile(serializeState(latestState));
+        return { mode: "download", task: latestTask };
+      }
+
+      async function persistMergedNote(taskId, note) {
+        if (typeof window.showOpenFilePicker === "function") {
+          return persistMergedNoteDirect(taskId, note);
+        }
+        return persistMergedNoteFallback(taskId, note);
+      }
+
+      function renderLatestNotes(target, notes) {
+        target.replaceChildren();
+        if (!notes.length) {
+          const empty = document.createElement("p");
+          empty.className = "notes-empty";
+          empty.textContent = "No handoff notes yet.";
+          target.appendChild(empty);
+          return;
+        }
+        const list = document.createElement("ul");
+        list.id = "task-notes-list";
+        for (const note of notes) {
+          const item = document.createElement("li");
+          item.textContent = note;
+          list.appendChild(item);
+        }
+        target.appendChild(list);
+      }
+
+      function currentTaskId() {
+        const kicker = document.querySelector("#task-detail .detail-kicker");
+        return kicker?.textContent?.split("·")[0]?.trim() || null;
+      }
+
+      function updateNoteHelp() {
+        const help = document.querySelector("#task-detail .note-help");
+        if (!help) return;
+        help.innerHTML = 'Human notes are saved with a <code>Human:</code> prefix. <strong>No refresh is required before saving:</strong> WeaveMap re-reads the latest <code>state.js</code> and merges only your note, preserving newer AI changes.';
+      }
+
+      const taskDetail = document.getElementById("task-detail");
+      if (taskDetail) {
+        new MutationObserver(updateNoteHelp).observe(taskDetail, { childList: true, subtree: true });
+      }
+
+      document.addEventListener("click", async (event) => {
+        const button = event.target.closest?.("#save-task-note");
+        if (!button) return;
+
+        // The v0.6.0 handler writes the page's in-memory snapshot. Stop it and
+        // replace it with a read-latest -> merge-note -> write-latest operation.
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const input = document.getElementById("task-note-input");
+        const status = document.getElementById("note-save-status");
+        const notesView = document.getElementById("task-notes-view");
+        const taskId = currentTaskId();
+        const text = input?.value.trim() || "";
+
+        if (!taskId) {
+          if (status) status.textContent = "Could not identify this task.";
+          return;
+        }
+        if (!text) {
+          if (status) status.textContent = "Write a note first.";
+          input?.focus();
+          return;
+        }
+
+        const note = /^Human:\s/i.test(text) ? text : `Human: ${text}`;
+        button.disabled = true;
+        if (status) status.textContent = "Reading latest state.js and merging note…";
+
+        try {
+          const result = await persistMergedNote(taskId, note);
+          const memoryTask = window.WEAVEMAP?.tasks?.find((entry) => entry?.id === taskId);
+          if (memoryTask) memoryTask.notes = [...result.task.notes];
+          if (notesView) renderLatestNotes(notesView, result.task.notes);
+          if (input) input.value = "";
+
+          if (status) {
+            status.textContent = result.mode === "direct"
+              ? "Saved into the latest state.js. Newer AI changes were preserved."
+              : "Merged with the selected current state.js. Replace weavemap/state.js with the downloaded file.";
+          }
+        } catch (error) {
+          if (status) {
+            status.textContent = error?.name === "AbortError"
+              ? "Save cancelled."
+              : (error?.message || "Could not save the note.");
+          }
+        } finally {
+          button.disabled = false;
+        }
+      }, true);
+
+      setPatchedVersion();
+    })();
+  </script>
 </body>
 </html>
