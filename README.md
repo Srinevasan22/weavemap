@@ -2,13 +2,13 @@
 
 **Project management for AI. A map for humans.**
 
-**Current runtime:** `v0.6.1` · **State schema:** `v4`
+**Current runtime:** `v0.7.0` · **State schema:** `v4`
 
-WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, dependencies, evidence, handoff notes, and its own agent/model identity. The human opens a static execution map to see what is done, what is ready, what is blocked, which AI agents have worked on the project, and how work progresses through dependency **waves**.
+WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, dependencies, evidence, handoff notes, and its own agent/model identity. The human opens a static execution map to see what is done, what is ready, what is waiting on prerequisites, what is genuinely blocked, and how work progresses through dependency **waves**.
 
 ## Drop it into a project
 
-Copy this repository's files into a `weavemap/` folder inside any project:
+Copy these files into a `weavemap/` folder inside any project:
 
 ```text
 your-project/
@@ -26,25 +26,33 @@ Then tell any coding AI:
 
 > Read `weavemap/PROTOCOL.md` and use WeaveMap to manage this project as you work.
 
-The protocol is agent-agnostic. No agent-specific integration is required.
-
-Open `weavemap/index.html` in a browser whenever you want to inspect the project.
+The protocol is agent-agnostic. No agent-specific integration is required. Open `weavemap/index.html` in a browser whenever you want to inspect the project.
 
 ## Versioning
 
 WeaveMap has two independent versions:
 
-- **Runtime version** — the observer/protocol release, currently `v0.6.1`.
-- **State schema version** — the structure of project data in `state.js`, currently `v4`.
+- **Runtime version** — the observer/protocol release, currently `v0.7.0`.
+- **State schema version** — the structure of durable project data in `state.js`, currently `v4`.
 
-The runtime version is visible directly in the WeaveMap header. The same metadata is exposed in the browser as:
+The runtime version is visible in the WeaveMap header and exposed in the browser as:
 
 ```js
 window.WEAVEMAP_RUNTIME
-// { version: "0.6.1", schemaVersion: 4 }
+// { version: "0.7.0", schemaVersion: 4 }
 ```
 
-A runtime patch or feature release does not necessarily require a state migration. The state schema only changes when the durable project-data structure changes.
+A runtime release does not necessarily require a state migration. The schema changes only when the durable project-data structure changes.
+
+## Waiting is not blocked
+
+Runtime `v0.7.0` separates normal dependency sequencing from real blockers.
+
+- **Ready** — a `todo` task whose hard dependencies are resolved.
+- **Waiting** — a `todo` task that cannot start yet because one or more hard dependencies are unfinished. This is normal project sequencing, not a problem.
+- **Blocked** — a task explicitly marked `blocked` because of a real obstacle that is not already represented by unfinished dependencies.
+
+The Waiting count includes an on-screen tooltip explaining this distinction. Waiting tasks are also grouped in a collapsible **Waiting on dependencies** section instead of inflating the Blockers list.
 
 ## New or already in progress
 
@@ -59,9 +67,7 @@ For adopted projects, WeaveMap does **not** invent historical completed tasks ju
 
 ## Add WeaveMap to an existing project
 
-If you are already working on a project, give your AI coding agent the WeaveMap repository URL and ask it to copy the files into the project.
-
-Use this prompt:
+Give your AI coding agent the WeaveMap repository URL and use this prompt:
 
 > Add WeaveMap to this existing project.  
 > From `https://github.com/Srinevasan22/weavemap`, copy the WeaveMap files into a new `weavemap/` folder in this project:
@@ -78,7 +84,7 @@ Use this prompt:
 >
 > For this first pass, **do not implement or change project code yet**. Only analyze the existing project and populate WeaveMap accurately.
 
-After the analysis is complete, open `weavemap/index.html` and review the adoption baseline, evidence, tasks, dependencies, ready frontier, blockers, and agent/model information before allowing the agent to continue implementation work.
+After the analysis, review the adoption baseline, evidence, tasks, dependencies, ready frontier, Waiting section, true blockers, and agent/model information before allowing implementation work to continue.
 
 ## Safe updates without losing project data
 
@@ -99,7 +105,7 @@ This file is your durable project data and must be preserved:
 weavemap/state.js
 ```
 
-The version badge in the observer is also an **Update WeaveMap** control. Click it to open the safe-update instructions and copy an AI update prompt.
+Click the version badge in the observer to open the safe-update instructions and copy an AI update prompt.
 
 The update flow is:
 
@@ -107,15 +113,9 @@ The update flow is:
 2. Replace only the four runtime files above from the latest WeaveMap repository.
 3. **Never overwrite `state.js` with the blank source template.**
 4. Read the newly installed `PROTOCOL.md`.
-5. If the new runtime expects a newer schema, migrate the existing `state.js` in place while preserving all project knowledge.
-6. Open the observer and resolve any validation errors.
+5. If the new runtime expects a newer schema, migrate the existing `state.js` in place while preserving project knowledge.
+6. Validate the observer and resolve any errors.
 7. Remove the temporary backup only after validation succeeds.
-
-You can also give an AI this directly:
-
-> Update WeaveMap in this project to the latest version from `https://github.com/Srinevasan22/weavemap`. Before changing anything, read and temporarily back up `weavemap/state.js`. Replace only `PROTOCOL.md`, `index.html`, `app.js`, and `style.css`. Never replace the project's `state.js` with the source template. Read the new protocol, migrate the existing state in place only if the schema changed, preserve all project knowledge and handoff notes, validate the observer, and remove the backup only after validation succeeds. Do not change application code as part of the WeaveMap update.
-
-This makes WeaveMap itself replaceable while the project's project-management memory survives across versions.
 
 ## Adoption fidelity (schema v4)
 
@@ -125,10 +125,8 @@ Schema v4 makes an AI-created project baseline easier for another AI or human to
 - **Gap disposition** — every adoption gap is explicitly `tracked`, `deferred`, or `accepted`. Tracked gaps point to the tasks addressing them.
 - **Requirement and decision origin** — knowledge is labeled `user`, `repo`, or `agent`, so AI proposals do not masquerade as established project facts.
 - **Hard dependency semantics** — `dependsOn` means a task cannot reasonably be executed or verified before its dependency. Convenience ordering is not a dependency.
-- **Acceptance fidelity** — agents must not invent arbitrary numeric targets as if they were existing requirements. Speculative thresholds must be labeled `Proposed:`.
+- **Acceptance fidelity** — agents must not invent arbitrary numeric targets as though they were existing requirements. Speculative thresholds must be labeled `Proposed:`.
 - **Defensive validation** — the observer checks schema compatibility, IDs, statuses, priorities, effort ranges, dependency integrity, cycles, origins, gap references, and task handoff notes.
-
-The goal is not maximum metadata. It is the smallest amount of provenance that makes AI handoffs reliable while avoiding repeated full-repository analysis.
 
 ## Persistent task handoff notes
 
@@ -147,13 +145,11 @@ Every task contains a `notes` array. It is persistent project memory for the **n
 }
 ```
 
-Before an agent starts or resumes a task, the WeaveMap protocol requires it to read the task's notes. During work, the agent should preserve concise findings, failed approaches, useful paths, test results, user clarifications, blockers, and other context that would otherwise have to be rediscovered in a later session.
-
-Human notes are prefixed with `Human:` so agents can distinguish explicit user context from AI-generated handoff notes.
+Before an agent starts or resumes a task, the protocol requires it to read the task's notes. Human-written notes are prefixed with `Human:` so agents can distinguish explicit user context from AI-generated handoff notes.
 
 ### Merge-safe human note saving
 
-From runtime `v0.6.1`, saving a human note does **not** write the browser's potentially stale in-memory project snapshot back over `state.js`.
+Saving a human note does **not** write the browser's potentially stale in-memory project snapshot back over `state.js`.
 
 Instead WeaveMap:
 
@@ -163,11 +159,7 @@ Instead WeaveMap:
 4. checks whether the file changed during the merge and retries if necessary;
 5. writes the merged latest state back.
 
-So you do **not** need to refresh WeaveMap before writing a note just because an AI may have updated `state.js` since the page was opened. Newer AI task/status/note changes are preserved.
-
-On browsers without direct local-file write access, WeaveMap asks you to select the current `state.js`, merges the note into that file, and downloads the merged replacement.
-
-Notes are not a chat log or permanent history. They should remain short, actionable, and updated when information becomes stale.
+So you do not need to refresh WeaveMap before writing a note just because an AI may have updated `state.js` since the page was opened.
 
 ## No install
 
@@ -185,14 +177,15 @@ The project state lives in `weavemap/state.js` and travels with the repository.
 ## Core model
 
 - **Tasks** contain the goal, implementation spec, acceptance criteria, effort, priority, status, hard dependencies, and persistent handoff notes.
-- **Task notes** carry concise context that the next AI pass must review before continuing the task.
 - **Dependencies** are the structural source of truth.
 - **Waves** are calculated dependency depths, not dates or weeks.
-- **Ready frontier** is the set of work that can execute now.
+- **Ready frontier** is the set of executable work now.
+- **Waiting** is derived automatically from unresolved hard dependencies.
+- **Blocked** is reserved for real obstacles that are not ordinary dependency sequencing.
 - **Recommended next** prefers active work, then priority, downstream impact, and lower effort.
 - **Requirements** record what the project must achieve and where that requirement came from.
 - **Decisions** preserve important project choices, why they were made, and their provenance.
-- **Agents used** records each unique AI agent/model combination that has managed or worked on the project. Agents record the exact model only when they can reliably identify it; otherwise the model remains unknown.
+- **Agents used** records each unique AI agent/model combination that has managed or worked on the project.
 - **Adoption baseline** records established capabilities, gaps, uncertainties, concise evidence, and how gaps are being handled.
 
 The execution map is derived automatically. The AI should not manually assign wave numbers.
