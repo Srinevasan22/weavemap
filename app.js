@@ -1,9 +1,10 @@
 (() => {
   "use strict";
 
-  const RUNTIME_VERSION = "0.9.0";
+  const RUNTIME_VERSION = "1.0.0";
   const CURRENT_SCHEMA_VERSION = 4;
   const APPROVAL_STATUSES = new Set(["pending", "approved", "rejected"]);
+  const VERIFICATION_RESULTS = new Set(["passed", "failed", "not-run", "human-override", "not-applicable"]);
 
   window.WEAVEMAP_RUNTIME = Object.freeze({ version: RUNTIME_VERSION, schemaVersion: CURRENT_SCHEMA_VERSION });
 
@@ -14,6 +15,7 @@
   const decisions = Array.isArray(data.decisions) ? data.decisions : [];
   const strictV4 = Number(data.schemaVersion || 0) >= 4;
   const byId = new Map(tasks.map((task) => [task.id, task]));
+  const requirementById = new Map(requirements.map((requirement) => [requirement.id, requirement]));
   const resolvedStatuses = new Set(["done", "skipped"]);
   const taskStatuses = new Set(["todo", "active", "blocked", "done", "skipped"]);
   const requirementStatuses = new Set(["active", "satisfied", "dropped"]);
@@ -22,6 +24,7 @@
   const gapDispositions = new Set(["tracked", "deferred", "accepted"]);
   let stateFileHandle = null;
   let mapDensity = "detailed";
+  let searchQuery = "";
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value)
@@ -31,13 +34,21 @@
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
-  function dependencies(task) { return Array.isArray(task.dependsOn) ? task.dependsOn : []; }
+  function dependencies(task) {
+    return Array.isArray(task.dependsOn) ? task.dependsOn : [];
+  }
+
+  function requirementIds(task) {
+    return Array.isArray(task.requirementIds) ? task.requirementIds : [];
+  }
+
   function unmetDependencies(task) {
     return dependencies(task).filter((id) => {
       const dependency = byId.get(id);
       return !dependency || !resolvedStatuses.has(dependency.status);
     });
   }
+
   function approval(task) {
     if (task?.humanApproval && typeof task.humanApproval === "object") {
       return {
@@ -50,13 +61,27 @@
     }
     return { required: false, status: null };
   }
+
   function isNeedsHuman(task) {
     const gate = approval(task);
-    return gate.required && gate.status === "pending" && !resolvedStatuses.has(task.status) && task.status !== "blocked" && unmetDependencies(task).length === 0;
+    return gate.required
+      && gate.status === "pending"
+      && !resolvedStatuses.has(task.status)
+      && task.status !== "blocked"
+      && unmetDependencies(task).length === 0;
   }
-  function isReady(task) { return task.status === "todo" && unmetDependencies(task).length === 0 && !isNeedsHuman(task); }
-  function isWaiting(task) { return task.status === "todo" && unmetDependencies(task).length > 0; }
-  function isBlocked(task) { return task.status === "blocked"; }
+
+  function isReady(task) {
+    return task.status === "todo" && unmetDependencies(task).length === 0 && !isNeedsHuman(task);
+  }
+
+  function isWaiting(task) {
+    return task.status === "todo" && unmetDependencies(task).length > 0;
+  }
+
+  function isBlocked(task) {
+    return task.status === "blocked";
+  }
 
   function duplicateIds(items) {
     const seen = new Set();
@@ -68,11 +93,25 @@
     }
     return [...duplicates];
   }
+
   function validEvidence(value) {
     return value === undefined || (Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry.trim()));
   }
+
   function validStringArray(value) {
     return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+  }
+
+  function structuredVerification(task) {
+    const raw = task?.completion?.verification;
+    if (!raw) return null;
+    if (typeof raw === "string") {
+      if (raw === "human-override") return { result: "human-override", legacy: true };
+      if (raw === "human-skip") return { result: "not-applicable", legacy: true };
+      return { result: "legacy", command: raw, legacy: true };
+    }
+    if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+    return null;
   }
 
   function validateState() {
@@ -80,6 +119,7 @@
     const visiting = new Set();
     const visited = new Set();
     const stateSchemaVersion = Number(data.schemaVersion || 0);
+    const requirementIdsSet = new Set(requirements.map((requirement) => requirement?.id).filter(Boolean));
 
     if (stateSchemaVersion !== CURRENT_SCHEMA_VERSION) {
       if (stateSchemaVersion < CURRENT_SCHEMA_VERSION) {
@@ -101,26 +141,61 @@
       if (!Number.isInteger(task?.effort) || task.effort < 1 || task.effort > 5) errors.push(`${label} effort must be an integer from 1 through 5.`);
       if (!Array.isArray(task?.dependsOn)) errors.push(`${label} dependsOn must be an array.`);
       if (!validStringArray(task?.notes)) errors.push(`${label} notes must be an array of strings.`);
-      if (task?.affectedPaths !== undefined && !validStringArray(task.affectedPaths)) errors.push(`${label} affectedPaths must be an array of strings.`);
-      if (task?.verification !== undefined) {
-        if (!task.verification || typeof task.verification !== "object" || Array.isArray(task.verification)) errors.push(`${label} verification must be an object.`);
-        else if (task.verification.command !== undefined && (typeof task.verification.command !== "string" || !task.verification.command.trim())) errors.push(`${label} verification.command must be a non-empty string.`);
-      }
-      if (task?.completion !== undefined) {
-        if (!task.completion || typeof task.completion !== "object" || Array.isArray(task.completion)) errors.push(`${label} completion must be an object.`);
-        else {
-          if (typeof task.completion.by !== "string" || !task.completion.by.trim()) errors.push(`${label} completion.by must be a non-empty string.`);
-          if (task.completion.commit !== undefined && typeof task.completion.commit !== "string") errors.push(`${label} completion.commit must be a string when present.`);
-          if (task.completion.verification !== undefined && typeof task.completion.verification !== "string") errors.push(`${label} completion.verification must be a string when present.`);
+      if (task?.origin !== undefined && !origins.has(task.origin)) errors.push(`${label} origin must be user, repo, or agent when present.`);
+
+      if (task?.requirementIds !== undefined) {
+        if (!validStringArray(task.requirementIds)) {
+          errors.push(`${label} requirementIds must be an array of strings.`);
+        } else {
+          for (const requirementId of task.requirementIds) {
+            if (!requirementIdsSet.has(requirementId)) errors.push(`${label} references missing requirement ${requirementId}.`);
+          }
         }
       }
+
+      if (task?.affectedPaths !== undefined && !validStringArray(task.affectedPaths)) {
+        errors.push(`${label} affectedPaths must be an array of strings.`);
+      }
+
+      if (task?.verification !== undefined) {
+        if (!task.verification || typeof task.verification !== "object" || Array.isArray(task.verification)) {
+          errors.push(`${label} verification must be an object.`);
+        } else if (task.verification.command !== undefined && (typeof task.verification.command !== "string" || !task.verification.command.trim())) {
+          errors.push(`${label} verification.command must be a non-empty string.`);
+        }
+      }
+
+      if (task?.completion !== undefined) {
+        if (!task.completion || typeof task.completion !== "object" || Array.isArray(task.completion)) {
+          errors.push(`${label} completion must be an object.`);
+        } else {
+          if (typeof task.completion.by !== "string" || !task.completion.by.trim()) errors.push(`${label} completion.by must be a non-empty string.`);
+          if (task.completion.commit !== undefined && typeof task.completion.commit !== "string") errors.push(`${label} completion.commit must be a string when present.`);
+          const verification = task.completion.verification;
+          if (verification !== undefined) {
+            if (typeof verification === "string") {
+              // Legacy v0.9 completion format remains supported.
+            } else if (!verification || typeof verification !== "object" || Array.isArray(verification)) {
+              errors.push(`${label} completion.verification must be a string or object.`);
+            } else {
+              if (!VERIFICATION_RESULTS.has(verification.result)) errors.push(`${label} completion.verification.result must be passed, failed, not-run, human-override, or not-applicable.`);
+              if (verification.command !== undefined && typeof verification.command !== "string") errors.push(`${label} completion.verification.command must be a string when present.`);
+              if (verification.note !== undefined && typeof verification.note !== "string") errors.push(`${label} completion.verification.note must be a string when present.`);
+              if (task.status === "done" && verification.result === "failed") errors.push(`${label} cannot be done with a failed verification result.`);
+            }
+          }
+        }
+      }
+
       if (task?.humanApproval !== undefined) {
-        if (!task.humanApproval || typeof task.humanApproval !== "object" || Array.isArray(task.humanApproval)) errors.push(`${label} humanApproval must be an object.`);
-        else {
+        if (!task.humanApproval || typeof task.humanApproval !== "object" || Array.isArray(task.humanApproval)) {
+          errors.push(`${label} humanApproval must be an object.`);
+        } else {
           if (task.humanApproval.required !== true) errors.push(`${label} humanApproval.required must be true when humanApproval is present.`);
           if (!APPROVAL_STATUSES.has(task.humanApproval.status || "pending")) errors.push(`${label} humanApproval.status must be pending, approved, or rejected.`);
         }
       }
+
       for (const dependencyId of dependencies(task)) {
         if (!byId.has(dependencyId)) errors.push(`${label} depends on missing task ${dependencyId}.`);
         if (dependencyId === task.id) errors.push(`${label} cannot depend on itself.`);
@@ -146,15 +221,25 @@
       if (decision?.supersedes === decision?.id) errors.push(`${label} cannot supersede itself.`);
     }
 
-    if (data.project?.entryMode && !["new", "adopted"].includes(data.project.entryMode)) errors.push('project.entryMode must be "new" or "adopted".');
-    if (data.project?.entryMode === "adopted" && !data.adoption) errors.push("Adopted projects should include an adoption baseline.");
+    if (data.project?.entryMode && !["new", "adopted"].includes(data.project.entryMode)) {
+      errors.push('project.entryMode must be "new" or "adopted".');
+    }
+    if (data.project?.entryMode === "adopted" && !data.adoption) {
+      errors.push("Adopted projects should include an adoption baseline.");
+    }
 
     if (data.project?.entryMode === "adopted" && data.adoption) {
       const adoption = data.adoption;
       for (const [kind, entries] of [["established", adoption.established], ["gaps", adoption.gaps], ["uncertainties", adoption.uncertainties]]) {
-        if (!Array.isArray(entries)) { errors.push(`adoption.${kind} must be an array.`); continue; }
+        if (!Array.isArray(entries)) {
+          errors.push(`adoption.${kind} must be an array.`);
+          continue;
+        }
         entries.forEach((entry, index) => {
-          if (strictV4 && (typeof entry !== "object" || !entry || Array.isArray(entry))) { errors.push(`adoption.${kind}[${index}] must be a structured finding object in schema v4.`); return; }
+          if (strictV4 && (typeof entry !== "object" || !entry || Array.isArray(entry))) {
+            errors.push(`adoption.${kind}[${index}] must be a structured finding object in schema v4.`);
+            return;
+          }
           if (typeof entry === "object" && entry) {
             if (!entry.text) errors.push(`adoption.${kind}[${index}] needs text.`);
             if (!validEvidence(entry.evidence)) errors.push(`adoption.${kind}[${index}] evidence must be an array of repository-relative strings.`);
@@ -165,21 +250,30 @@
         adoption.gaps.forEach((gap, index) => {
           if (typeof gap !== "object" || !gap) return;
           if (!gapDispositions.has(gap.disposition)) errors.push(`adoption.gaps[${index}] disposition must be tracked, deferred, or accepted.`);
-          if (!Array.isArray(gap.taskIds)) { errors.push(`adoption.gaps[${index}] taskIds must be an array.`); return; }
-          for (const taskId of gap.taskIds) if (!byId.has(taskId)) errors.push(`adoption.gaps[${index}] references missing task ${taskId}.`);
+          if (!Array.isArray(gap.taskIds)) {
+            errors.push(`adoption.gaps[${index}] taskIds must be an array.`);
+            return;
+          }
+          for (const taskId of gap.taskIds) {
+            if (!byId.has(taskId)) errors.push(`adoption.gaps[${index}] references missing task ${taskId}.`);
+          }
           if (gap.disposition === "tracked" && gap.taskIds.length === 0) errors.push(`adoption.gaps[${index}] is tracked but has no taskIds.`);
         });
       }
     }
 
     function visit(id, path = []) {
-      if (visiting.has(id)) { errors.push(`Dependency cycle detected: ${[...path, id].join(" → ")}.`); return; }
+      if (visiting.has(id)) {
+        errors.push(`Dependency cycle detected: ${[...path, id].join(" → ")}.`);
+        return;
+      }
       if (visited.has(id) || !byId.has(id)) return;
       visiting.add(id);
       for (const dependencyId of dependencies(byId.get(id))) visit(dependencyId, [...path, id]);
       visiting.delete(id);
       visited.add(id);
     }
+
     for (const task of tasks) visit(task.id);
     return [...new Set(errors)];
   }
@@ -187,6 +281,7 @@
   function calculateWaves() {
     const memo = new Map();
     const stack = new Set();
+
     function waveFor(id) {
       if (memo.has(id)) return memo.get(id);
       if (stack.has(id)) return 0;
@@ -194,11 +289,14 @@
       const task = byId.get(id);
       if (!task) return 0;
       const validDeps = dependencies(task).filter((dependencyId) => byId.has(dependencyId));
-      const wave = validDeps.length === 0 ? 0 : Math.max(...validDeps.map((dependencyId) => waveFor(dependencyId))) + 1;
+      const wave = validDeps.length === 0
+        ? 0
+        : Math.max(...validDeps.map((dependencyId) => waveFor(dependencyId))) + 1;
       stack.delete(id);
       memo.set(id, wave);
       return wave;
     }
+
     for (const task of tasks) waveFor(task.id);
     return memo;
   }
@@ -206,8 +304,15 @@
   const stateErrors = validateState();
   const waves = calculateWaves();
 
-  function unblockCount(taskId) { return tasks.filter((task) => dependencies(task).includes(taskId)).length; }
-  function priorityValue(priority) { const match = String(priority || "").match(/\d+/); return match ? Number(match[0]) : 99; }
+  function unblockCount(taskId) {
+    return tasks.filter((task) => dependencies(task).includes(taskId)).length;
+  }
+
+  function priorityValue(priority) {
+    const match = String(priority || "").match(/\d+/);
+    return match ? Number(match[0]) : 99;
+  }
+
   function rankTasks(list) {
     return [...list].sort((a, b) => {
       const activeDelta = (a.status === "active" ? 0 : 1) - (b.status === "active" ? 0 : 1);
@@ -219,6 +324,7 @@
       return (a.effort || 3) - (b.effort || 3);
     });
   }
+
   function taskState(task) {
     if (task.status === "done" || task.status === "skipped") return "done";
     if (task.status === "active") return isNeedsHuman(task) ? "approval" : "active";
@@ -238,6 +344,7 @@
     $("schema-version").textContent = `state schema v${data.schemaVersion ?? "?"}`;
     $("update-runtime-version").textContent = `v${RUNTIME_VERSION}`;
     document.title = `${project.name || "Project"} · WeaveMap v${RUNTIME_VERSION}`;
+
     if (!data.initialized) $("onboarding").classList.remove("hidden");
     if (stateErrors.length) {
       $("validation").classList.remove("hidden");
@@ -252,8 +359,9 @@
     const waiting = tasks.filter(isWaiting);
     const needsHuman = tasks.filter(isNeedsHuman);
     const blocked = tasks.filter(isBlocked);
-    const activeOrReady = rankTasks(tasks.filter((task) => task.status === "active" || isReady(task)));
-    const currentWave = activeOrReady.length ? waves.get(activeOrReady[0].id) : null;
+    const currentCandidates = rankTasks(tasks.filter((task) => (task.status === "active" && !isBlocked(task)) || isReady(task) || isNeedsHuman(task)));
+    const currentWave = currentCandidates.length ? waves.get(currentCandidates[0].id) : null;
+
     $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
     $("progress").textContent = `${progress}%`;
     $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
@@ -274,22 +382,43 @@
       disposition: kind === "gaps" ? value.disposition || null : null
     };
   }
+
   function renderBaselineList(targetId, items, emptyMessage, kind) {
     const target = $(targetId);
-    const values = Array.isArray(items) ? items.map((value) => normalizeFinding(value, kind)).filter((value) => value?.text) : [];
+    const values = Array.isArray(items)
+      ? items.map((value) => normalizeFinding(value, kind)).filter((value) => value?.text)
+      : [];
     target.replaceChildren();
-    if (!values.length) { const item = document.createElement("li"); item.textContent = emptyMessage; target.appendChild(item); return; }
+
+    if (!values.length) {
+      const item = document.createElement("li");
+      item.textContent = emptyMessage;
+      target.appendChild(item);
+      return;
+    }
+
     for (const value of values) {
-      const item = document.createElement("li"); item.className = "baseline-item";
-      const text = document.createElement("span"); text.className = "baseline-text"; text.textContent = value.text; item.appendChild(text);
+      const item = document.createElement("li");
+      item.className = "baseline-item";
+      const text = document.createElement("span");
+      text.className = "baseline-text";
+      text.textContent = value.text;
+      item.appendChild(text);
+
       const metadata = [];
       if (value.disposition) metadata.push(value.disposition);
       if (value.taskIds.length) metadata.push(value.taskIds.join(", "));
       if (value.evidence.length) metadata.push(`evidence: ${value.evidence.join(" · ")}`);
-      if (metadata.length) { const meta = document.createElement("span"); meta.className = "baseline-meta"; meta.textContent = metadata.join("  •  "); item.appendChild(meta); }
+      if (metadata.length) {
+        const meta = document.createElement("span");
+        meta.className = "baseline-meta";
+        meta.textContent = metadata.join("  •  ");
+        item.appendChild(meta);
+      }
       target.appendChild(item);
     }
   }
+
   function renderAdoption() {
     if (data.project?.entryMode !== "adopted") return;
     const adoption = data.adoption || {};
@@ -301,22 +430,172 @@
   }
 
   function normalizedAgents() {
-    const seen = new Set(); const result = [];
+    const seen = new Set();
+    const result = [];
     for (const entry of agents) {
       const name = typeof entry === "string" ? entry : entry?.name;
       const model = typeof entry === "object" && entry ? entry.model : null;
       if (!name) continue;
       const key = `${name}\u0000${model || ""}`;
       if (seen.has(key)) continue;
-      seen.add(key); result.push({ name, model: model || null });
+      seen.add(key);
+      result.push({ name, model: model || null });
     }
     return result;
   }
+
   function renderAgents() {
-    const recorded = normalizedAgents(); const target = $("agent-list");
+    const recorded = normalizedAgents();
+    const target = $("agent-list");
     $("agent-count").textContent = recorded.length ? `${recorded.length} recorded` : "";
-    if (!recorded.length) { target.innerHTML = '<div class="empty small">No agents recorded yet. An AI will add itself when it begins managing the project.</div>'; return; }
-    target.replaceChildren(...recorded.map((entry) => { const card = document.createElement("div"); card.className = "agent-chip"; card.innerHTML = `<strong>${escapeHtml(entry.name)}</strong><span>${entry.model ? escapeHtml(entry.model) : "Model unknown"}</span>`; return card; }));
+    if (!recorded.length) {
+      target.innerHTML = '<div class="empty small">No agents recorded yet. An AI will add itself when it begins managing the project.</div>';
+      return;
+    }
+    target.replaceChildren(...recorded.map((entry) => {
+      const card = document.createElement("div");
+      card.className = "agent-chip";
+      card.innerHTML = `<strong>${escapeHtml(entry.name)}</strong><span>${entry.model ? escapeHtml(entry.model) : "Model unknown"}</span>`;
+      return card;
+    }));
+  }
+
+  function requirementCoverage() {
+    const activeRequirements = requirements.filter((requirement) => requirement?.status === "active");
+    const taskMap = new Map(activeRequirements.map((requirement) => [requirement.id, []]));
+
+    for (const task of tasks) {
+      if (task.status === "skipped") continue;
+      for (const requirementId of requirementIds(task)) {
+        if (taskMap.has(requirementId)) taskMap.get(requirementId).push(task);
+      }
+    }
+
+    const covered = activeRequirements.filter((requirement) => (taskMap.get(requirement.id) || []).length > 0);
+    const uncovered = activeRequirements.filter((requirement) => (taskMap.get(requirement.id) || []).length === 0);
+    return { activeRequirements, taskMap, covered, uncovered };
+  }
+
+  function renderRequirementCoverage() {
+    const panel = $("requirements-panel");
+    const list = $("requirement-list");
+    const summary = $("requirement-coverage-summary");
+    const coverage = requirementCoverage();
+
+    if (!requirements.length) {
+      summary.textContent = "No requirements";
+      list.innerHTML = '<div class="empty small">No requirements recorded yet.</div>';
+      return;
+    }
+
+    summary.textContent = coverage.activeRequirements.length
+      ? `${coverage.covered.length}/${coverage.activeRequirements.length} active covered`
+      : "No active requirements";
+
+    if (coverage.uncovered.length && !panel.dataset.autoOpened) {
+      panel.open = true;
+      panel.dataset.autoOpened = "true";
+    }
+
+    if (!coverage.activeRequirements.length) {
+      list.innerHTML = '<div class="empty small">There are no active requirements to cover.</div>';
+      return;
+    }
+
+    list.replaceChildren(...coverage.activeRequirements.map((requirement) => {
+      const row = document.createElement("div");
+      const linked = coverage.taskMap.get(requirement.id) || [];
+      row.className = `requirement-row${linked.length ? " covered" : " uncovered"}`;
+      const origin = requirement.origin || "unknown";
+      row.innerHTML = `
+        <div class="requirement-main">
+          <span class="task-id">${escapeHtml(requirement.id)}</span>
+          <strong>${escapeHtml(requirement.text || "Untitled requirement")}</strong>
+          <small>${escapeHtml(origin)}${origin === "agent" ? " · proposed" : ""}</small>
+        </div>
+        <div class="requirement-links">${linked.length ? linked.map((task) => `<button type="button" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.id)}</button>`).join("") : '<span class="coverage-warning">uncovered</span>'}</div>
+      `;
+      row.querySelectorAll("button[data-task-id]").forEach((button) => {
+        button.addEventListener("click", () => openTask(button.dataset.taskId));
+      });
+      return row;
+    }));
+  }
+
+  function normalizePathPattern(value) {
+    return String(value || "")
+      .replaceAll("\\", "/")
+      .replace(/^\.\//, "")
+      .replace(/\/+/g, "/")
+      .trim();
+  }
+
+  function pathBase(pattern) {
+    const normalized = normalizePathPattern(pattern);
+    const wildcardIndex = normalized.search(/[?*[]/);
+    const base = (wildcardIndex >= 0 ? normalized.slice(0, wildcardIndex) : normalized).replace(/\/+$/, "");
+    return base;
+  }
+
+  function pathPatternsOverlap(a, b) {
+    const aBase = pathBase(a);
+    const bBase = pathBase(b);
+    if (!aBase || !bBase) return false;
+    return aBase === bBase || aBase.startsWith(`${bBase}/`) || bBase.startsWith(`${aBase}/`);
+  }
+
+  function findPathConflicts() {
+    const candidates = tasks.filter((task) => {
+      const paths = Array.isArray(task.affectedPaths) ? task.affectedPaths : [];
+      return paths.length && (task.status === "active" || isReady(task));
+    });
+    const conflicts = [];
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      for (let j = i + 1; j < candidates.length; j += 1) {
+        const a = candidates[i];
+        const b = candidates[j];
+        const overlaps = [];
+        for (const aPath of a.affectedPaths) {
+          for (const bPath of b.affectedPaths) {
+            if (pathPatternsOverlap(aPath, bPath)) overlaps.push([aPath, bPath]);
+          }
+        }
+        if (overlaps.length) conflicts.push({ a, b, overlaps });
+      }
+    }
+    return conflicts;
+  }
+
+  function conflictsForTask(taskId) {
+    return findPathConflicts().filter((conflict) => conflict.a.id === taskId || conflict.b.id === taskId);
+  }
+
+  function renderConflicts() {
+    const panel = $("conflict-panel");
+    const list = $("conflict-list");
+    const count = $("conflict-count");
+    const conflicts = findPathConflicts();
+
+    if (!conflicts.length) {
+      panel.classList.add("hidden");
+      list.replaceChildren();
+      return;
+    }
+
+    panel.classList.remove("hidden");
+    count.textContent = `${conflicts.length} potential ${conflicts.length === 1 ? "collision" : "collisions"}`;
+    list.replaceChildren(...conflicts.map((conflict) => {
+      const item = document.createElement("div");
+      item.className = "conflict-row";
+      const overlapText = conflict.overlaps.slice(0, 2).map(([aPath, bPath]) => aPath === bPath ? aPath : `${aPath} ↔ ${bPath}`).join(" · ");
+      item.innerHTML = `
+        <div><strong>${escapeHtml(conflict.a.id)} ↔ ${escapeHtml(conflict.b.id)}</strong><span>${escapeHtml(overlapText)}</span></div>
+        <div class="conflict-actions"><button type="button" data-task-id="${escapeHtml(conflict.a.id)}">${escapeHtml(conflict.a.id)}</button><button type="button" data-task-id="${escapeHtml(conflict.b.id)}">${escapeHtml(conflict.b.id)}</button></div>
+      `;
+      item.querySelectorAll("button[data-task-id]").forEach((button) => button.addEventListener("click", () => openTask(button.dataset.taskId)));
+      return item;
+    }));
   }
 
   function populateMapFilters() {
@@ -324,6 +603,29 @@
     const values = [...new Set(tasks.map((task) => task.workstream || "General"))].sort();
     select.replaceChildren(new Option("All workstreams", "all"), ...values.map((value) => new Option(value, value)));
   }
+
+  function taskSearchText(task) {
+    return [
+      task.id,
+      task.title,
+      task.workstream,
+      task.phase,
+      task.status,
+      task.priority,
+      task.origin,
+      task.goal,
+      task.spec,
+      ...(Array.isArray(task.notes) ? task.notes : []),
+      ...(Array.isArray(task.affectedPaths) ? task.affectedPaths : []),
+      ...requirementIds(task)
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function taskMatchesSearch(task) {
+    if (!searchQuery) return true;
+    return taskSearchText(task).includes(searchQuery);
+  }
+
   function mapFilterAllows(task) {
     const workstream = $("filter-workstream")?.value || "all";
     const state = $("filter-state")?.value || "all";
@@ -331,33 +633,80 @@
     if (workstream !== "all" && (task.workstream || "General") !== workstream) return false;
     if (hideDone && resolvedStatuses.has(task.status)) return false;
     if (state !== "all" && taskState(task) !== state) return false;
+    if (!taskMatchesSearch(task)) return false;
     return true;
   }
+
+  function verificationBadge(task) {
+    const verification = structuredVerification(task);
+    if (!verification) return "";
+    if (verification.result === "passed") return "✓ verified";
+    if (verification.result === "failed") return "✕ verification failed";
+    if (verification.result === "not-run") return "not verified";
+    if (verification.result === "human-override") return "human override";
+    if (verification.result === "not-applicable") return "verification n/a";
+    if (verification.result === "legacy") return "verification recorded";
+    return "";
+  }
+
   function renderExecutionMap() {
     const container = $("execution-map");
     const visibleTasks = tasks.filter(mapFilterAllows);
-    if (!tasks.length) { container.innerHTML = '<div class="empty">No tasks yet. The AI will create the execution map when it initializes the project.</div>'; return; }
-    if (!visibleTasks.length) { container.innerHTML = '<div class="empty">No tasks match the current map filters.</div>'; return; }
+    if (!tasks.length) {
+      container.innerHTML = '<div class="empty">No tasks yet. The AI will create the execution map when it initializes the project.</div>';
+      return;
+    }
+    if (!visibleTasks.length) {
+      container.innerHTML = '<div class="empty">No tasks match the current search and map filters.</div>';
+      return;
+    }
+
     const maxWave = Math.max(0, ...visibleTasks.map((task) => waves.get(task.id) || 0));
     const workstreams = [...new Set(visibleTasks.map((task) => task.workstream || "General"))];
     const frontierWaves = new Set(tasks.filter((task) => task.status === "active" || isReady(task)).map((task) => waves.get(task.id)));
     const grid = document.createElement("div");
     grid.className = `map-grid ${mapDensity === "compact" ? "compact" : ""}`;
     grid.style.setProperty("--wave-count", maxWave + 1);
-    const corner = document.createElement("div"); corner.className = "map-header workstream-header"; corner.textContent = "Workstream"; grid.appendChild(corner);
+
+    const corner = document.createElement("div");
+    corner.className = "map-header workstream-header";
+    corner.textContent = "Workstream";
+    grid.appendChild(corner);
+
     for (let wave = 0; wave <= maxWave; wave += 1) {
-      const header = document.createElement("div"); header.className = `map-header${frontierWaves.has(wave) ? " frontier-wave" : ""}`; header.innerHTML = `<strong>Wave ${wave}</strong>${frontierWaves.has(wave) ? "<span>frontier</span>" : ""}`; grid.appendChild(header);
+      const header = document.createElement("div");
+      header.className = `map-header${frontierWaves.has(wave) ? " frontier-wave" : ""}`;
+      header.innerHTML = `<strong>Wave ${wave}</strong>${frontierWaves.has(wave) ? "<span>frontier</span>" : ""}`;
+      grid.appendChild(header);
     }
+
     for (const workstream of workstreams) {
-      const label = document.createElement("div"); label.className = "workstream-label"; label.textContent = workstream; grid.appendChild(label);
+      const label = document.createElement("div");
+      label.className = "workstream-label";
+      label.textContent = workstream;
+      grid.appendChild(label);
+
       for (let wave = 0; wave <= maxWave; wave += 1) {
-        const cell = document.createElement("div"); cell.className = `wave-cell${frontierWaves.has(wave) ? " frontier-wave" : ""}`;
+        const cell = document.createElement("div");
+        cell.className = `wave-cell${frontierWaves.has(wave) ? " frontier-wave" : ""}`;
         const cellTasks = visibleTasks.filter((task) => (task.workstream || "General") === workstream && waves.get(task.id) === wave);
+
         for (const task of cellTasks) {
-          const state = taskState(task); const button = document.createElement("button");
-          button.className = `task-card ${state}`; button.type = "button"; button.dataset.taskId = task.id;
-          button.innerHTML = `<span class="task-id">${escapeHtml(task.id)}</span><strong>${escapeHtml(task.title)}</strong><span class="task-meta">${escapeHtml(task.priority || "P3")} · ${"●".repeat(Math.max(1, Math.min(5, task.effort || 3)))}${mapDensity === "detailed" && task.phase ? ` · ${escapeHtml(task.phase)}` : ""}</span>`;
-          button.addEventListener("click", () => openTask(task.id)); cell.appendChild(button);
+          const state = taskState(task);
+          const button = document.createElement("button");
+          button.className = `task-card ${state}`;
+          button.type = "button";
+          button.dataset.taskId = task.id;
+          const origin = task.origin ? ` · ${task.origin}` : "";
+          const verification = verificationBadge(task);
+          button.innerHTML = `
+            <span class="task-id">${escapeHtml(task.id)}</span>
+            <strong>${escapeHtml(task.title)}</strong>
+            <span class="task-meta">${escapeHtml(task.priority || "P3")} · ${"●".repeat(Math.max(1, Math.min(5, task.effort || 3)))}${mapDensity === "detailed" && task.phase ? ` · ${escapeHtml(task.phase)}` : ""}${mapDensity === "detailed" ? escapeHtml(origin) : ""}</span>
+            ${mapDensity === "detailed" && verification ? `<span class="verification-mini">${escapeHtml(verification)}</span>` : ""}
+          `;
+          button.addEventListener("click", () => openTask(task.id));
+          cell.appendChild(button);
         }
         grid.appendChild(cell);
       }
@@ -367,14 +716,30 @@
 
   function renderList(targetId, list, emptyMessage, recommendedId = null) {
     const target = $(targetId);
-    if (!list.length) { target.innerHTML = `<div class="empty small">${escapeHtml(emptyMessage)}</div>`; return; }
+    if (!list.length) {
+      target.innerHTML = `<div class="empty small">${escapeHtml(emptyMessage)}</div>`;
+      return;
+    }
+
     target.replaceChildren(...list.map((task) => {
-      const button = document.createElement("button"); button.className = "list-task"; button.type = "button"; button.addEventListener("click", () => openTask(task.id));
+      const button = document.createElement("button");
+      button.className = "list-task";
+      button.type = "button";
+      button.addEventListener("click", () => openTask(task.id));
       const unmet = unmetDependencies(task);
-      button.innerHTML = `<span class="list-task-main"><span class="task-id">${escapeHtml(task.id)}</span><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}${unmet.length ? ` · waits for ${escapeHtml(unmet.join(", "))}` : ""}</small></span>${task.id === recommendedId ? '<span class="recommended">next</span>' : ""}`;
+      const verification = verificationBadge(task);
+      button.innerHTML = `
+        <span class="list-task-main">
+          <span class="task-id">${escapeHtml(task.id)}</span>
+          <strong>${escapeHtml(task.title)}</strong>
+          <small>${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}${task.origin ? ` · ${escapeHtml(task.origin)}` : ""}${unmet.length ? ` · waits for ${escapeHtml(unmet.join(", "))}` : ""}${verification ? ` · ${escapeHtml(verification)}` : ""}</small>
+        </span>
+        ${task.id === recommendedId ? '<span class="recommended">next</span>' : ""}
+      `;
       return button;
     }));
   }
+
   function renderQueues() {
     const active = tasks.filter((task) => task.status === "active" && !isNeedsHuman(task));
     const ready = tasks.filter(isReady);
@@ -383,6 +748,7 @@
     const blocked = tasks.filter(isBlocked).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
     const waiting = tasks.filter(isWaiting).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
     const needsHuman = tasks.filter(isNeedsHuman).sort((a, b) => priorityValue(a.priority) - priorityValue(b.priority));
+
     $("next-label").textContent = recommended ? `Next: ${recommended.id}` : "";
     renderList("ready-list", ranked, "Nothing is currently ready.", recommended?.id);
     renderList("needs-human-list", needsHuman, "Nothing currently needs human approval.");
@@ -390,15 +756,42 @@
     renderList("waiting-list", waiting, "Nothing is waiting on dependencies.");
   }
 
+  function renderSearchResults() {
+    const panel = $("search-results-panel");
+    const list = $("search-results");
+    const count = $("search-result-count");
+
+    if (!searchQuery) {
+      panel.classList.add("hidden");
+      list.replaceChildren();
+      count.textContent = "";
+      return;
+    }
+
+    const matches = rankTasks(tasks.filter(taskMatchesSearch));
+    panel.classList.remove("hidden");
+    count.textContent = `${matches.length} ${matches.length === 1 ? "match" : "matches"}`;
+    renderList("search-results", matches.slice(0, 40), "No tasks match this search.");
+  }
+
   function parseStateSource(source) {
     const match = String(source).match(/^\s*window\.WEAVEMAP\s*=\s*([\s\S]*);\s*$/);
     if (!match) throw new Error("The selected file is not a valid WeaveMap state.js file.");
-    const payload = match[1].trim(); let parsed;
-    try { parsed = JSON.parse(payload); } catch { parsed = Function(`\"use strict\"; return (${payload});`)(); }
+    const payload = match[1].trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(payload);
+    } catch {
+      parsed = Function(`\"use strict\"; return (${payload});`)();
+    }
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("state.js did not contain a valid WeaveMap state object.");
     return parsed;
   }
-  function serializeState(state) { return `window.WEAVEMAP = ${JSON.stringify(state, null, 2)};\n`; }
+
+  function serializeState(state) {
+    return `window.WEAVEMAP = ${JSON.stringify(state, null, 2)};\n`;
+  }
+
   function mutateTask(state, taskId, action) {
     if (Number(state.schemaVersion || 0) !== CURRENT_SCHEMA_VERSION) throw new Error(`This runtime expects state schema v${CURRENT_SCHEMA_VERSION}. Update or migrate WeaveMap before saving.`);
     if (!Array.isArray(state.tasks)) throw new Error("The latest state.js has no valid tasks array.");
@@ -419,112 +812,296 @@
     if (action.type === "status") {
       task.status = action.status;
       if (action.note) task.notes.push(`Human: ${action.note}`);
-      if (action.status === "done") task.completion = { by: "Human", verification: "human-override" };
-      else if (action.status === "skipped") task.completion = { by: "Human", verification: "human-skip" };
-      else if (action.status === "todo") delete task.completion;
+      if (action.status === "done") {
+        task.completion = {
+          by: "Human",
+          verification: {
+            result: "human-override",
+            note: "Marked done through the WeaveMap observer."
+          }
+        };
+      } else if (action.status === "skipped") {
+        task.completion = {
+          by: "Human",
+          verification: {
+            result: "not-applicable",
+            note: "Task skipped through the WeaveMap observer."
+          }
+        };
+      } else if (action.status === "todo") {
+        delete task.completion;
+      }
     }
     return task;
   }
+
   function downloadStateFile(content) {
-    const blob = new Blob([content], { type: "text/javascript;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a");
-    anchor.href = url; anchor.download = "state.js"; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 0);
+    const blob = new Blob([content], { type: "text/javascript;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "state.js";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
+
   async function getDirectStateHandle() {
     if (stateFileHandle) return stateFileHandle;
-    const handles = await window.showOpenFilePicker({ multiple: false, types: [{ description: "WeaveMap state.js", accept: { "text/javascript": [".js"] } }] });
+    const handles = await window.showOpenFilePicker({
+      multiple: false,
+      types: [{ description: "WeaveMap state.js", accept: { "text/javascript": [".js"] } }]
+    });
     const handle = handles[0] || null;
     if (!handle || handle.name !== "state.js") throw new Error("Select this project's weavemap/state.js file.");
-    stateFileHandle = handle; return handle;
+    stateFileHandle = handle;
+    return handle;
   }
+
   async function persistMutationDirect(taskId, action) {
     const handle = await getDirectStateHandle();
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const before = await handle.getFile(); const latestState = parseStateSource(await before.text()); const latestTask = mutateTask(latestState, taskId, action);
-      const check = await handle.getFile(); if (check.lastModified !== before.lastModified || check.size !== before.size) continue;
-      const writable = await handle.createWritable(); await writable.write(serializeState(latestState)); await writable.close(); return { mode: "direct", task: latestTask };
+      const before = await handle.getFile();
+      const latestState = parseStateSource(await before.text());
+      const latestTask = mutateTask(latestState, taskId, action);
+      const check = await handle.getFile();
+      if (check.lastModified !== before.lastModified || check.size !== before.size) continue;
+      const writable = await handle.createWritable();
+      await writable.write(serializeState(latestState));
+      await writable.close();
+      return { mode: "direct", task: latestTask };
     }
     throw new Error("state.js is changing right now. Wait for the AI write to finish, then try again.");
   }
+
   function chooseCurrentStateFile() {
     return new Promise((resolve, reject) => {
-      const input = document.createElement("input"); input.type = "file"; input.accept = ".js,text/javascript,application/javascript"; input.hidden = true; document.body.appendChild(input);
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".js,text/javascript,application/javascript";
+      input.hidden = true;
+      document.body.appendChild(input);
       const cleanup = () => input.remove();
-      input.addEventListener("change", () => { const file = input.files?.[0]; cleanup(); if (!file) return reject(new DOMException("No file selected.", "AbortError")); if (file.name !== "state.js") return reject(new Error("Select this project's current weavemap/state.js file.")); resolve(file); }, { once: true });
-      input.addEventListener("cancel", () => { cleanup(); reject(new DOMException("File selection cancelled.", "AbortError")); }, { once: true }); input.click();
+      input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        cleanup();
+        if (!file) return reject(new DOMException("No file selected.", "AbortError"));
+        if (file.name !== "state.js") return reject(new Error("Select this project's current weavemap/state.js file."));
+        resolve(file);
+      }, { once: true });
+      input.addEventListener("cancel", () => {
+        cleanup();
+        reject(new DOMException("File selection cancelled.", "AbortError"));
+      }, { once: true });
+      input.click();
     });
   }
+
   async function persistMutationFallback(taskId, action) {
-    const file = await chooseCurrentStateFile(); const latestState = parseStateSource(await file.text()); const latestTask = mutateTask(latestState, taskId, action); downloadStateFile(serializeState(latestState)); return { mode: "download", task: latestTask };
+    const file = await chooseCurrentStateFile();
+    const latestState = parseStateSource(await file.text());
+    const latestTask = mutateTask(latestState, taskId, action);
+    downloadStateFile(serializeState(latestState));
+    return { mode: "download", task: latestTask };
   }
+
   async function persistMutation(taskId, action) {
-    return typeof window.showOpenFilePicker === "function" ? persistMutationDirect(taskId, action) : persistMutationFallback(taskId, action);
+    return typeof window.showOpenFilePicker === "function"
+      ? persistMutationDirect(taskId, action)
+      : persistMutationFallback(taskId, action);
   }
+
   function syncMemoryTask(taskId, latestTask) {
-    const memoryTask = byId.get(taskId); if (!memoryTask) return; Object.keys(memoryTask).forEach((key) => delete memoryTask[key]); Object.assign(memoryTask, latestTask);
+    const memoryTask = byId.get(taskId);
+    if (!memoryTask) return;
+    Object.keys(memoryTask).forEach((key) => delete memoryTask[key]);
+    Object.assign(memoryTask, latestTask);
   }
-  function mutationMessage(mode) { return mode === "direct" ? "Saved to the latest state.js." : "Merged state.js downloaded. Replace weavemap/state.js with it."; }
+
+  function mutationMessage(mode) {
+    return mode === "direct"
+      ? "Saved to the latest state.js."
+      : "Merged state.js downloaded. Replace weavemap/state.js with it.";
+  }
 
   function renderNotesList(notes) {
     if (!notes.length) return '<p class="notes-empty">No handoff notes yet.</p>';
     return `<ul id="task-notes-list">${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   }
+
+  function renderVerificationDetails(task) {
+    const completion = task.completion && typeof task.completion === "object" ? task.completion : null;
+    if (!completion) return "";
+    const verification = structuredVerification(task);
+    let verificationHtml = "";
+
+    if (verification) {
+      const labels = {
+        passed: "Verified ✓",
+        failed: "Verification failed ✕",
+        "not-run": "Not verified",
+        "human-override": "Human verification override",
+        "not-applicable": "Verification not applicable",
+        legacy: "Verification recorded (legacy)"
+      };
+      const resultClass = verification.result === "legacy" ? "legacy" : verification.result;
+      verificationHtml = `<div class="verification-result ${escapeHtml(resultClass)}"><strong>${escapeHtml(labels[verification.result] || verification.result)}</strong>${verification.command ? `<code>${escapeHtml(verification.command)}</code>` : ""}${verification.note ? `<span>${escapeHtml(verification.note)}</span>` : ""}</div>`;
+    }
+
+    return `<h3>Completion</h3><p>${escapeHtml(completion.by || "Unknown")}${completion.commit ? ` · commit <code>${escapeHtml(completion.commit)}</code>` : ""}</p>${verificationHtml}`;
+  }
+
   function renderTaskDetail(task) {
     const deps = dependencies(task);
     const unblocks = tasks.filter((candidate) => dependencies(candidate).includes(task.id)).map((candidate) => candidate.id);
     const acceptance = Array.isArray(task.acceptance) ? task.acceptance : [];
     const affectedPaths = Array.isArray(task.affectedPaths) ? task.affectedPaths : [];
     const gate = approval(task);
-    const completion = task.completion && typeof task.completion === "object" ? task.completion : null;
+    const conflicts = conflictsForTask(task.id);
+    const reqIds = requirementIds(task);
+
+    const conflictHtml = conflicts.length
+      ? `<div class="task-conflict-warning"><strong>Potential parallel edit conflict</strong><ul>${conflicts.map((conflict) => {
+          const other = conflict.a.id === task.id ? conflict.b : conflict.a;
+          const paths = conflict.overlaps.slice(0, 2).map(([aPath, bPath]) => aPath === bPath ? aPath : `${aPath} ↔ ${bPath}`).join(" · ");
+          return `<li>${escapeHtml(other.id)} — ${escapeHtml(paths)}</li>`;
+        }).join("")}</ul></div>`
+      : "";
+
     return `
       <div class="detail-kicker">${escapeHtml(task.id)} · ${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}</div>
       <h2>${escapeHtml(task.title)}</h2>
-      <div class="detail-tags"><span>${escapeHtml(taskState(task))}</span><span>${escapeHtml(task.priority || "P3")}</span><span>effort ${escapeHtml(task.effort || 3)}/5</span>${task.phase ? `<span>${escapeHtml(task.phase)}</span>` : ""}</div>
+      <div class="detail-tags">
+        <span>${escapeHtml(taskState(task))}</span>
+        <span>${escapeHtml(task.priority || "P3")}</span>
+        <span>effort ${escapeHtml(task.effort || 3)}/5</span>
+        ${task.phase ? `<span>${escapeHtml(task.phase)}</span>` : ""}
+        ${task.origin ? `<span>origin: ${escapeHtml(task.origin)}${task.origin === "agent" ? " (proposed)" : ""}</span>` : ""}
+      </div>
       ${gate.required ? `<div class="approval-banner ${gate.status}"><strong>Human approval ${escapeHtml(gate.status)}</strong><span>${gate.status === "pending" ? "AI must not treat this gate as approved until the user explicitly approves it." : gate.status === "approved" ? "This gate has explicit human approval." : "Approval was rejected; revise before requesting approval again."}</span></div>` : ""}
+      ${conflictHtml}
       ${task.goal ? `<h3>Goal</h3><p>${escapeHtml(task.goal)}</p>` : ""}
       ${task.spec ? `<h3>Specification</h3><p class="preline">${escapeHtml(task.spec)}</p>` : ""}
       <h3>Dependencies</h3><p>${deps.length ? escapeHtml(deps.join(", ")) : "None"}</p>
       <h3>Unblocks</h3><p>${unblocks.length ? escapeHtml(unblocks.join(", ")) : "None"}</p>
+      ${reqIds.length ? `<h3>Requirements covered</h3><div class="requirement-chip-list">${reqIds.map((id) => {
+        const requirement = requirementById.get(id);
+        return `<span title="${escapeHtml(requirement?.text || id)}">${escapeHtml(id)}</span>`;
+      }).join("")}</div>` : ""}
       ${affectedPaths.length ? `<h3>Expected edit scope</h3><ul>${affectedPaths.map((item) => `<li><code>${escapeHtml(item)}</code></li>`).join("")}</ul><p class="detail-help">Advisory scope for coordination, not a hard file lock.</p>` : ""}
       ${task.verification?.command ? `<h3>Verification command</h3><pre class="command-box">${escapeHtml(task.verification.command)}</pre>` : ""}
       ${acceptance.length ? `<h3>Acceptance criteria</h3><ul>${acceptance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-      ${completion ? `<h3>Completion</h3><p>${escapeHtml(completion.by || "Unknown")}${completion.commit ? ` · commit <code>${escapeHtml(completion.commit)}</code>` : ""}${completion.verification ? ` · ${escapeHtml(completion.verification)}` : ""}</p>` : ""}
+      ${renderVerificationDetails(task)}
       <h3>Handoff notes</h3><div id="task-notes-view">${renderNotesList(Array.isArray(task.notes) ? task.notes : [])}</div>
-      <div class="note-editor"><label for="task-note-input">Add a note for the next AI pass</label><textarea id="task-note-input" rows="3" placeholder="Example: Prioritize the mobile flow first; do not change the backend contract."></textarea><div class="note-actions"><button id="save-task-note" class="primary-button" type="button">Save note</button><span id="note-save-status" class="muted" aria-live="polite"></span></div><p class="note-help">Human notes use a <code>Human:</code> prefix. No refresh is required: WeaveMap merges the change into the latest <code>state.js</code>.</p></div>
-      <div class="human-controls"><h3>Human controls</h3><div class="control-row"><label>Priority <select id="task-priority">${["P1","P2","P3","P4","P5"].map((p) => `<option value="${p}"${task.priority === p ? " selected" : ""}>${p}</option>`).join("")}</select></label>${gate.required && gate.status !== "approved" ? '<button id="approve-task" class="secondary-button" type="button">Approve</button><button id="reject-task" class="secondary-button danger" type="button">Reject</button>' : ""}<button id="mark-done" class="secondary-button" type="button">Mark done</button><button id="skip-task" class="secondary-button" type="button">Skip</button><button id="block-task" class="secondary-button" type="button">Block</button><button id="reopen-task" class="secondary-button" type="button">Reopen</button></div><p id="task-control-status" class="muted" aria-live="polite"></p><p class="detail-help">Human Mark done is recorded as a verification override; it does not pretend an AI executed the task's verification command.</p></div>
+      <div class="note-editor">
+        <label for="task-note-input">Add a note for the next AI pass</label>
+        <textarea id="task-note-input" rows="3" placeholder="Example: Prioritize the mobile flow first; do not change the backend contract."></textarea>
+        <div class="note-actions"><button id="save-task-note" class="primary-button" type="button">Save note</button><span id="note-save-status" class="muted" aria-live="polite"></span></div>
+        <p class="note-help">Human notes use a <code>Human:</code> prefix. No refresh is required: WeaveMap merges the change into the latest <code>state.js</code>.</p>
+      </div>
+      <div class="human-controls">
+        <h3>Human controls</h3>
+        <div class="control-row">
+          <label>Priority <select id="task-priority">${["P1","P2","P3","P4","P5"].map((p) => `<option value="${p}"${task.priority === p ? " selected" : ""}>${p}</option>`).join("")}</select></label>
+          ${gate.required && gate.status !== "approved" ? '<button id="approve-task" class="secondary-button" type="button">Approve</button><button id="reject-task" class="secondary-button danger" type="button">Reject</button>' : ""}
+          <button id="mark-done" class="secondary-button" type="button">Mark done</button>
+          <button id="skip-task" class="secondary-button" type="button">Skip</button>
+          <button id="block-task" class="secondary-button" type="button">Block</button>
+          <button id="reopen-task" class="secondary-button" type="button">Reopen</button>
+        </div>
+        <p id="task-control-status" class="muted" aria-live="polite"></p>
+        <p class="detail-help">Human Mark done is recorded as a verification override; it does not pretend an AI executed the task's verification command.</p>
+      </div>
     `;
   }
 
+  function refreshDerivedUI() {
+    renderStats();
+    renderRequirementCoverage();
+    renderConflicts();
+    renderExecutionMap();
+    renderQueues();
+    renderSearchResults();
+  }
+
   function openTask(taskId) {
-    const task = byId.get(taskId); if (!task) return;
+    const task = byId.get(taskId);
+    if (!task) return;
     if (!Array.isArray(task.notes)) task.notes = [];
-    const detail = $("task-detail"); detail.innerHTML = renderTaskDetail(task);
-    const noteInput = $("task-note-input"); const noteStatus = $("note-save-status");
+    const detail = $("task-detail");
+    detail.innerHTML = renderTaskDetail(task);
+    const noteInput = $("task-note-input");
+    const noteStatus = $("note-save-status");
 
     $("save-task-note").addEventListener("click", async () => {
-      const text = noteInput.value.trim(); if (!text) { noteStatus.textContent = "Write a note first."; noteInput.focus(); return; }
-      const note = /^Human:\s/i.test(text) ? text : `Human: ${text}`; const button = $("save-task-note"); button.disabled = true; noteStatus.textContent = "Merging with latest state.js…";
-      try { const result = await persistMutation(taskId, { type: "note", note }); syncMemoryTask(taskId, result.task); $("task-notes-view").innerHTML = renderNotesList(result.task.notes); noteInput.value = ""; noteStatus.textContent = mutationMessage(result.mode); }
-      catch (error) { noteStatus.textContent = error?.name === "AbortError" ? "Save cancelled." : (error?.message || "Could not save note."); }
-      finally { button.disabled = false; }
+      const text = noteInput.value.trim();
+      if (!text) {
+        noteStatus.textContent = "Write a note first.";
+        noteInput.focus();
+        return;
+      }
+      const note = /^Human:\s/i.test(text) ? text : `Human: ${text}`;
+      const button = $("save-task-note");
+      button.disabled = true;
+      noteStatus.textContent = "Merging with latest state.js…";
+      try {
+        const result = await persistMutation(taskId, { type: "note", note });
+        syncMemoryTask(taskId, result.task);
+        $("task-notes-view").innerHTML = renderNotesList(result.task.notes);
+        noteInput.value = "";
+        noteStatus.textContent = mutationMessage(result.mode);
+        refreshDerivedUI();
+      } catch (error) {
+        noteStatus.textContent = error?.name === "AbortError" ? "Save cancelled." : (error?.message || "Could not save note.");
+      } finally {
+        button.disabled = false;
+      }
     });
 
     const controlStatus = $("task-control-status");
     async function runControl(action, pending = "Saving…") {
       controlStatus.textContent = pending;
-      try { const result = await persistMutation(taskId, action); syncMemoryTask(taskId, result.task); controlStatus.textContent = mutationMessage(result.mode); $("task-dialog").close(); openTask(taskId); }
-      catch (error) { controlStatus.textContent = error?.name === "AbortError" ? "Change cancelled." : (error?.message || "Could not save change."); }
+      try {
+        const result = await persistMutation(taskId, action);
+        syncMemoryTask(taskId, result.task);
+        controlStatus.textContent = mutationMessage(result.mode);
+        refreshDerivedUI();
+        detail.innerHTML = renderTaskDetail(byId.get(taskId));
+        $("task-dialog").close();
+        openTask(taskId);
+      } catch (error) {
+        controlStatus.textContent = error?.name === "AbortError" ? "Change cancelled." : (error?.message || "Could not save change.");
+      }
     }
 
     $("task-priority").addEventListener("change", (event) => runControl({ type: "priority", priority: event.target.value }, "Updating priority…"));
-    if ($("approve-task")) $("approve-task").addEventListener("click", () => { const reason = prompt("Optional approval note:") || ""; runControl({ type: "approve", reason }, "Recording approval…"); });
-    if ($("reject-task")) $("reject-task").addEventListener("click", () => { const reason = prompt("Why is approval rejected?"); if (reason?.trim()) runControl({ type: "reject", reason: reason.trim() }, "Recording rejection…"); });
+    if ($("approve-task")) $("approve-task").addEventListener("click", () => {
+      const reason = prompt("Optional approval note:") || "";
+      runControl({ type: "approve", reason }, "Recording approval…");
+    });
+    if ($("reject-task")) $("reject-task").addEventListener("click", () => {
+      const reason = prompt("Why is approval rejected?");
+      if (reason?.trim()) runControl({ type: "reject", reason: reason.trim() }, "Recording rejection…");
+    });
     $("mark-done").addEventListener("click", () => {
       const gate = approval(byId.get(taskId));
-      if (gate.required && gate.status !== "approved") { controlStatus.textContent = "Approve this human gate before marking it done."; return; }
-      if (confirm("Mark this task done as a human verification override?")) runControl({ type: "status", status: "done", note: "Marked done via observer as a human verification override." });
+      if (gate.required && gate.status !== "approved") {
+        controlStatus.textContent = "Approve this human gate before marking it done.";
+        return;
+      }
+      if (confirm("Mark this task done as a human verification override?")) {
+        runControl({ type: "status", status: "done", note: "Marked done via observer as a human verification override." });
+      }
     });
-    $("skip-task").addEventListener("click", () => { const reason = prompt("Why is this task being skipped?") || "Skipped via observer."; runControl({ type: "status", status: "skipped", note: `Skipped — ${reason}` }); });
-    $("block-task").addEventListener("click", () => { const reason = prompt("What real obstacle is blocking this task?"); if (reason?.trim()) runControl({ type: "status", status: "blocked", note: `Blocked — ${reason.trim()}` }); });
+    $("skip-task").addEventListener("click", () => {
+      const reason = prompt("Why is this task being skipped?") || "Skipped via observer.";
+      runControl({ type: "status", status: "skipped", note: `Skipped — ${reason}` });
+    });
+    $("block-task").addEventListener("click", () => {
+      const reason = prompt("What real obstacle is blocking this task?");
+      if (reason?.trim()) runControl({ type: "status", status: "blocked", note: `Blocked — ${reason.trim()}` });
+    });
     $("reopen-task").addEventListener("click", () => runControl({ type: "status", status: "todo", note: "Reopened via observer." }, "Reopening…"));
 
     $("task-dialog").showModal();
@@ -533,23 +1110,77 @@
   function safeUpdatePrompt() {
     return `Update WeaveMap in this project to the latest version from https://github.com/Srinevasan22/weavemap.\n\nThis is a runtime update. Preserve all project-management data.\n\n1. Read the existing weavemap/state.js before changing anything.\n2. Make a temporary backup of weavemap/state.js.\n3. Replace ONLY these runtime files from the latest WeaveMap repository:\n   - weavemap/PROTOCOL.md\n   - weavemap/index.html\n   - weavemap/app.js\n   - weavemap/style.css\n4. NEVER replace weavemap/state.js with the source repository template.\n5. Read the new weavemap/PROTOCOL.md completely.\n6. If the new runtime expects a newer state schema, migrate the EXISTING state.js in place while preserving all project knowledge.\n7. Validate the state in the WeaveMap observer and resolve all validation errors.\n8. Only after validation succeeds, remove the temporary state backup.\n9. Do not change application code as part of the WeaveMap update.\n\nReport the old runtime/schema version, the new runtime/schema version, whether a state migration was required, and whether validation passed.`;
   }
+
   function copyText(value) {
     if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
-    return new Promise((resolve, reject) => { const textarea = document.createElement("textarea"); textarea.value = value; textarea.setAttribute("readonly", ""); textarea.style.position = "fixed"; textarea.style.opacity = "0"; document.body.appendChild(textarea); textarea.select(); try { const copied = document.execCommand("copy"); textarea.remove(); copied ? resolve() : reject(new Error("Copy command was not accepted.")); } catch (error) { textarea.remove(); reject(error); } });
+    return new Promise((resolve, reject) => {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        copied ? resolve() : reject(new Error("Copy command was not accepted."));
+      } catch (error) {
+        textarea.remove();
+        reject(error);
+      }
+    });
   }
 
   function setupDialogs() {
-    const taskDialog = $("task-dialog"); taskDialog.querySelector(".dialog-close").addEventListener("click", () => taskDialog.close()); taskDialog.addEventListener("click", (event) => { if (event.target === taskDialog) taskDialog.close(); });
-    const updateDialog = $("update-dialog"); const promptText = safeUpdatePrompt(); $("update-prompt").textContent = promptText;
-    $("update-button").addEventListener("click", () => updateDialog.showModal()); updateDialog.querySelector(".update-close").addEventListener("click", () => updateDialog.close()); updateDialog.addEventListener("click", (event) => { if (event.target === updateDialog) updateDialog.close(); });
-    $("copy-update-prompt").addEventListener("click", async () => { const status = $("copy-status"); try { await copyText(promptText); status.textContent = "Copied."; } catch { status.textContent = "Copy failed — select the prompt manually."; } });
+    const taskDialog = $("task-dialog");
+    taskDialog.querySelector(".dialog-close").addEventListener("click", () => taskDialog.close());
+    taskDialog.addEventListener("click", (event) => {
+      if (event.target === taskDialog) taskDialog.close();
+    });
+
+    const updateDialog = $("update-dialog");
+    const promptText = safeUpdatePrompt();
+    $("update-prompt").textContent = promptText;
+    $("update-button").addEventListener("click", () => updateDialog.showModal());
+    updateDialog.querySelector(".update-close").addEventListener("click", () => updateDialog.close());
+    updateDialog.addEventListener("click", (event) => {
+      if (event.target === updateDialog) updateDialog.close();
+    });
+    $("copy-update-prompt").addEventListener("click", async () => {
+      const status = $("copy-status");
+      try {
+        await copyText(promptText);
+        status.textContent = "Copied.";
+      } catch {
+        status.textContent = "Copy failed — select the prompt manually.";
+      }
+    });
   }
+
   function setupMapControls() {
     populateMapFilters();
     $("filter-workstream").addEventListener("change", renderExecutionMap);
     $("filter-state").addEventListener("change", renderExecutionMap);
     $("hide-done").addEventListener("change", renderExecutionMap);
-    $("density-toggle").addEventListener("click", () => { mapDensity = mapDensity === "detailed" ? "compact" : "detailed"; $("density-toggle").textContent = mapDensity === "compact" ? "Detailed cards" : "Compact cards"; renderExecutionMap(); });
+    $("density-toggle").addEventListener("click", () => {
+      mapDensity = mapDensity === "detailed" ? "compact" : "detailed";
+      $("density-toggle").textContent = mapDensity === "compact" ? "Detailed cards" : "Compact cards";
+      renderExecutionMap();
+    });
+
+    $("task-search").addEventListener("input", (event) => {
+      searchQuery = event.target.value.trim().toLowerCase();
+      renderExecutionMap();
+      renderSearchResults();
+    });
+    $("clear-search").addEventListener("click", () => {
+      $("task-search").value = "";
+      searchQuery = "";
+      renderExecutionMap();
+      renderSearchResults();
+      $("task-search").focus();
+    });
   }
 
   setupDialogs();
@@ -558,6 +1189,9 @@
   renderStats();
   renderAdoption();
   renderAgents();
+  renderRequirementCoverage();
+  renderConflicts();
   renderExecutionMap();
   renderQueues();
+  renderSearchResults();
 })();
