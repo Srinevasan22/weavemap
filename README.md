@@ -2,7 +2,7 @@
 
 **Project management for AI. A map for humans.**
 
-WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, dependencies, evidence, and its own agent/model identity. The human opens a static execution map to see what is done, what is ready, what is blocked, which AI agents have worked on the project, and how work progresses through dependency **waves**.
+WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, dependencies, evidence, handoff notes, and its own agent/model identity. The human opens a static execution map to see what is done, what is ready, what is blocked, which AI agents have worked on the project, and how work progresses through dependency **waves**.
 
 ## Drop it into a project
 
@@ -73,9 +73,29 @@ Schema v4 makes an AI-created project baseline easier for another AI or human to
 - **Requirement and decision origin** — knowledge is labeled `user`, `repo`, or `agent`, so AI proposals do not masquerade as established project facts.
 - **Hard dependency semantics** — `dependsOn` means a task cannot reasonably be executed or verified before its dependency. Convenience ordering is not a dependency.
 - **Acceptance fidelity** — agents must not invent arbitrary numeric targets as if they were existing requirements. Speculative thresholds must be labeled `Proposed:`.
-- **Defensive validation** — the observer checks IDs, statuses, priorities, effort ranges, dependency integrity, cycles, origins, and adoption gap references.
+- **Defensive validation** — the observer checks IDs, statuses, priorities, effort ranges, dependency integrity, cycles, origins, gap references, and task handoff notes.
 
 The goal is not maximum metadata. It is the smallest amount of provenance that makes AI handoffs reliable while avoiding repeated full-repository analysis.
+
+## Persistent task handoff notes
+
+Every task contains a `notes` array. It is persistent project memory for the **next AI pass on that task**.
+
+```js
+{
+  id: "T-014",
+  title: "Fix scanner regression",
+  // ...
+  notes: [
+    "Failure is isolated to target_05.jpg; outer-ring detection was already ruled out.",
+    "Next pass: inspect the cluster split threshold before changing Hough parameters."
+  ]
+}
+```
+
+Before an agent starts or resumes a task, the WeaveMap protocol requires it to read the task's notes. During work, the agent should preserve concise findings, failed approaches, useful paths, test results, user clarifications, blockers, and other context that would otherwise have to be rediscovered in a later session.
+
+Notes are not a chat log or permanent history. They should remain short, actionable, and updated when information becomes stale.
 
 ## Updating an existing WeaveMap copy
 
@@ -85,7 +105,7 @@ Then tell the AI:
 
 > Read the current `weavemap/PROTOCOL.md`, migrate `weavemap/state.js` to the current schema without losing project knowledge, validate it, and do not change application code during the migration.
 
-For schema v4, the main migration is converting adoption findings to structured objects, adding gap dispositions/task references, and adding `origin`/`evidence` to requirements and decisions.
+For schema v4, the main migration is converting adoption findings to structured objects, adding gap dispositions/task references, adding `origin`/`evidence` to requirements and decisions, and ensuring every task has a string-array `notes` field.
 
 ## No install
 
@@ -102,7 +122,8 @@ The project state lives in `weavemap/state.js` and travels with the repository.
 
 ## Core model
 
-- **Tasks** contain the goal, implementation spec, acceptance criteria, effort, priority, status, and hard dependencies.
+- **Tasks** contain the goal, implementation spec, acceptance criteria, effort, priority, status, hard dependencies, and persistent handoff notes.
+- **Task notes** carry concise context that the next AI pass must review before continuing the task.
 - **Dependencies** are the structural source of truth.
 - **Waves** are calculated dependency depths, not dates or weeks.
 - **Ready frontier** is the set of work that can execute now.
