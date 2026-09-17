@@ -1,6 +1,6 @@
 # WeaveMap protocol
 
-**Runtime version:** `0.6.0`  
+**Runtime version:** `0.6.1`  
 **Current state schema:** `4`
 
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
@@ -46,7 +46,7 @@ The observer displays both the WeaveMap runtime version and the project's state 
 
 ```js
 window.WEAVEMAP_RUNTIME
-// { version: "0.6.0", schemaVersion: 4 }
+// { version: "0.6.1", schemaVersion: 4 }
 ```
 
 When asked to update WeaveMap in a host project, follow this procedure:
@@ -220,24 +220,19 @@ Use notes for information that is useful to the next pass but does not belong in
 
 Keep notes short and actionable. Do not copy chat transcripts or duplicate the task `spec`. Update or remove stale notes when they would mislead the next agent.
 
+Human-written notes are prefixed with `Human:`. Treat them as explicit user context/instructions for that task unless the user later supersedes them. Do not silently delete or rewrite them merely because an agent disagrees with them.
+
+The observer's human note editor is merge-safe: immediately before saving, it re-reads the current `state.js`, finds the task in that latest state, appends only the new human note, and writes the merged state back. If the file changes during that operation, WeaveMap retries against the newer file. A human therefore does not need to refresh the observer before adding a note just because an AI may have changed `state.js`.
+
 Example:
 
 ```js
 notes: [
   "Scanner regression currently fails only on target_05.jpg; outer-ring detection was already ruled out.",
+  "Human: Do not change the backend contract while fixing this task.",
   "Next pass: inspect cluster split threshold in scanner_v2/core/hole_detection.py before changing Hough parameters."
 ]
 ```
-
-### Human-written notes from the observer
-
-Runtime v0.6.0 lets the human write a note directly from a task's detail dialog. The observer appends the note to that task's `notes` array with a `Human:` prefix and persists the updated project state to `weavemap/state.js`.
-
-Treat any note beginning with `Human:` as explicit user context, not an agent inference. Read it before continuing the task. If a human note changes the intended work, update the task specification, requirements, decisions, priorities, or dependencies as needed so the durable state reflects the user's direction rather than silently ignoring the note.
-
-Do not delete a `Human:` note merely because it is inconvenient or conflicts with an earlier agent note. Resolve or incorporate it first. Once its instruction is fully reflected elsewhere in durable state, it may be shortened or removed if retaining it would only create stale duplication.
-
-The observer may ask the human to select the project's existing `weavemap/state.js` file the first time a note is saved. On browsers without direct local-file write support, the observer downloads an updated `state.js`; that downloaded file must replace the project's existing `weavemap/state.js` before the note becomes durable repo state.
 
 ## Dependency semantics
 
@@ -264,6 +259,7 @@ During work:
 
 - Keep the active task's `spec` stable enough for another agent to understand the intended work.
 - Add or update `notes` whenever a finding, failed approach, caveat, user clarification, or partial result would save the next pass from rediscovering it.
+- Preserve `Human:` notes unless the user explicitly supersedes or removes them.
 - When pausing an unfinished task, leave at least one useful handoff note when there is non-obvious context to preserve.
 - When new required work is discovered, create a new task in `weavemap/state.js` and connect only true hard dependencies instead of leaving an orphan TODO in chat or code.
 - If a discovery changes requirements or architecture, update `requirements` or append a `decision` as appropriate.
@@ -274,7 +270,7 @@ During work:
 When work finishes:
 
 1. Verify the acceptance criteria.
-2. Remove or revise stale handoff notes, while preserving any note that remains useful for future maintenance or downstream tasks.
+2. Remove or revise stale agent-authored handoff notes, while preserving any note that remains useful for future maintenance or downstream tasks and preserving `Human:` notes unless explicitly superseded by the user.
 3. Set the task to `done` in `weavemap/state.js`.
 4. Update related adoption gap dispositions if the work closes or changes a gap.
 5. Update project phase if the project has materially moved forward.
@@ -366,7 +362,7 @@ The observer UI performs defensive validation, but agents should avoid writing i
 
 ## Human control
 
-The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, defer, accept, or redefine work. `Human:` task notes written in the observer are also explicit user context. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
+The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, defer, accept, or redefine work. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
 
 ## Using WeaveMap with common AI agents
 
