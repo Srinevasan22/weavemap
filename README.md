@@ -39,6 +39,31 @@ On first initialization the AI inspects the host repository and sets the project
 
 For adopted projects, WeaveMap does **not** invent historical completed tasks just to reconstruct a fictional timeline. Existing capabilities are recorded separately in the adoption baseline, while the execution map tracks work from the point WeaveMap joins the project.
 
+## Add WeaveMap to an existing project
+
+If you are already working on a project, you can give your AI coding agent the WeaveMap repository URL and ask it to copy the runtime files into the project.
+
+Use this prompt:
+
+> Add WeaveMap to this existing project.  
+> From `https://github.com/Srinevasan22/weavemap`, copy the WeaveMap runtime files into a new `weavemap/` folder in this project:
+>
+> - `PROTOCOL.md`
+> - `state.js`
+> - `index.html`
+> - `app.js`
+> - `style.css`
+>
+> Do not modify the WeaveMap runtime files except `weavemap/state.js` as instructed by the protocol.
+>
+> Then read `weavemap/PROTOCOL.md`, inspect this existing project, and initialize WeaveMap in adoption mode.
+>
+> For this first pass, **do not implement or change project code yet**. Only analyze the existing project and populate WeaveMap accurately.
+
+After the analysis is complete, open `weavemap/index.html` and review the adoption baseline, tasks, dependencies, ready frontier, blockers, and agent/model information before allowing the agent to continue implementation work.
+
+This first-pass analysis is intentionally separate from development. It lets you verify that the agent has understood the existing project correctly before WeaveMap becomes the project's ongoing project-management source of truth.
+
 ## No install
 
 WeaveMap has:
