@@ -1,5 +1,8 @@
 # WeaveMap protocol
 
+**Runtime version:** `0.5.0`  
+**Current state schema:** `4`
+
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
 
 This protocol is agent-agnostic. Any AI coding agent that can read and edit repository files can use WeaveMap.
@@ -18,11 +21,54 @@ When you are asked to initialize or use WeaveMap in a host project:
 
 Do not assume any root-level agent instruction file belongs to WeaveMap.
 
+## Runtime version and safe updates
+
+WeaveMap intentionally separates the **runtime** from the **project data**.
+
+Updatable runtime files:
+
+```text
+weavemap/PROTOCOL.md
+weavemap/index.html
+weavemap/app.js
+weavemap/style.css
+```
+
+Durable project data:
+
+```text
+weavemap/state.js
+```
+
+`state.js` must never be replaced with the blank `state.js` template from the WeaveMap source repository when updating an existing installation.
+
+The observer displays both the WeaveMap runtime version and the project's state schema. The runtime metadata is also available in the browser as:
+
+```js
+window.WEAVEMAP_RUNTIME
+// { version: "0.5.0", schemaVersion: 4 }
+```
+
+When asked to update WeaveMap in a host project, follow this procedure:
+
+1. Read the existing `weavemap/state.js` before changing anything.
+2. Make a temporary backup of that exact state file.
+3. Replace only `PROTOCOL.md`, `index.html`, `app.js`, and `style.css` with the latest WeaveMap runtime files.
+4. Never replace the project's `state.js` with the source repository template.
+5. Read the newly installed `PROTOCOL.md` completely.
+6. Compare the existing `state.js` `schemaVersion` with the schema expected by the new runtime.
+7. If migration is required, migrate the **existing state in place**. Preserve project metadata, adoption findings and evidence, requirements, decisions, task IDs, statuses, dependencies, acceptance criteria, handoff notes, agents, and other project knowledge except where a compatible structural migration explicitly requires reshaping it.
+8. Open or otherwise validate the new observer and resolve every WeaveMap validation error.
+9. Remove the temporary backup only after validation succeeds.
+10. Do not change host application code as part of a WeaveMap runtime update unless the user separately asked for application work.
+
+If the state schema is newer than the installed runtime supports, do not edit project state with the older runtime. Update the runtime first.
+
 ## Source of truth
 
 `weavemap/state.js` is the canonical project state. The UI derives waves, readiness, blockers, progress, and the recommended next task from it. Do not manually assign wave numbers.
 
-When WeaveMap is embedded in another repository, normally edit only `weavemap/state.js`. Do not modify `weavemap/index.html`, `weavemap/app.js`, or `weavemap/style.css` unless the user is explicitly developing WeaveMap itself.
+When WeaveMap is embedded in another repository, normally edit only `weavemap/state.js`. Do not modify `weavemap/index.html`, `weavemap/app.js`, or `weavemap/style.css` unless the user is explicitly developing WeaveMap itself or updating the WeaveMap runtime.
 
 Keep `state.js` data-only: use JSON-compatible literals wrapped in `window.WEAVEMAP = ...`. Do not add functions, imports, computed properties, runtime expressions, or helper variables.
 
@@ -291,6 +337,7 @@ If a decision changes, add a new decision and set `supersedes` to the previous d
 
 Before relying on the project graph, ensure the state is internally valid. At minimum:
 
+- the state schema matches the schema supported by the installed runtime;
 - task, requirement, and decision IDs are unique within their collections;
 - task statuses are one of `todo`, `active`, `blocked`, `done`, `skipped`;
 - priorities are `P1` through `P5`;
