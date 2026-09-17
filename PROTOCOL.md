@@ -13,7 +13,8 @@ When you are asked to initialize or use WeaveMap in a host project:
 1. Read `weavemap/PROTOCOL.md` completely.
 2. Inspect the host project outside the `weavemap/` folder.
 3. Read and maintain `weavemap/state.js` as the canonical project-management state.
-4. Use the host repository, not chat history, as the authoritative context for continuing work.
+4. Record your agent identity in `weavemap/state.js` as described below.
+5. Use the host repository, not chat history, as the authoritative context for continuing work.
 
 Do not assume any root-level agent instruction file belongs to WeaveMap.
 
@@ -23,18 +24,41 @@ Do not assume any root-level agent instruction file belongs to WeaveMap.
 
 When WeaveMap is embedded in another repository, normally edit only `weavemap/state.js`. Do not modify `weavemap/index.html`, `weavemap/app.js`, or `weavemap/style.css` unless the user is explicitly developing WeaveMap itself.
 
+## Agent and model identity
+
+WeaveMap records which AI agents have worked on the project so the human observer can see the project's AI toolchain.
+
+Ensure `weavemap/state.js` contains an `agents` array. When you first work on the project, add one entry for your current agent/model combination if it is not already present:
+
+```js
+agents: [
+  { name: "Codex", model: "GPT-5.6 Sol" },
+  { name: "Claude Code", model: null }
+]
+```
+
+Rules:
+
+- `name` is the agent or coding environment actually doing the work, such as `Codex`, `ChatGPT`, `Claude Code`, `Gemini CLI`, `Cursor`, `Windsurf`, or `GitHub Copilot`.
+- `model` is the exact model only when you can reliably identify it from your environment or system context.
+- Never infer or guess a model from the agent/provider name. If the exact model is unavailable, use `null`.
+- Do not duplicate an existing identical `name` + `model` pair.
+- If the same agent later uses a different known model, add a separate entry.
+- Keep this lightweight: do not add timestamps, token counts, or per-session logs unless the schema is explicitly extended later.
+
 ## First initialization
 
 If `weavemap/state.js` has `initialized: false`:
 
 1. Inspect the host project and the user's stated goal.
 2. Set the project name, summary, and current high-level phase.
-3. Define only the workstreams the project actually needs. Examples may include Product, Architecture, Design, Frontend, Backend, Data, Infrastructure, QA, Security, Release, Mobile, AI, or Documentation. Do not create empty boilerplate workstreams.
-4. Add explicit requirements.
-5. Add known architectural/product decisions only when they are actually decided.
-6. Decompose the work into tasks with meaningful dependency relationships.
-7. Validate that dependencies are acyclic and point to real task IDs.
-8. Set `initialized: true` before beginning implementation.
+3. Record your agent/model identity in `agents`.
+4. Define only the workstreams the project actually needs. Examples may include Product, Architecture, Design, Frontend, Backend, Data, Infrastructure, QA, Security, Release, Mobile, AI, or Documentation. Do not create empty boilerplate workstreams.
+5. Add explicit requirements.
+6. Add known architectural/product decisions only when they are actually decided.
+7. Decompose the work into tasks with meaningful dependency relationships.
+8. Validate that dependencies are acyclic and point to real task IDs.
+9. Set `initialized: true` before beginning implementation.
 
 ## Task schema
 
@@ -68,10 +92,11 @@ Priority uses `P1` (highest) through `P5` (lowest).
 Before starting development work:
 
 1. Read `weavemap/state.js`.
-2. Continue an `active` task when appropriate.
-3. Otherwise select a `todo` task whose dependencies are all `done` or `skipped`.
-4. Prefer, in order: higher priority, tasks that unblock more downstream work, then lower effort.
-5. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
+2. Ensure your agent/model entry exists in `agents`.
+3. Continue an `active` task when appropriate.
+4. Otherwise select a `todo` task whose dependencies are all `done` or `skipped`.
+5. Prefer, in order: higher priority, tasks that unblock more downstream work, then lower effort.
+6. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
 
 During work:
 
