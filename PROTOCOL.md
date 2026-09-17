@@ -1,6 +1,6 @@
 # WeaveMap protocol
 
-**Runtime version:** `0.6.1`  
+**Runtime version:** `0.7.0`  
 **Current state schema:** `4`
 
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
@@ -42,39 +42,37 @@ weavemap/state.js
 
 `state.js` must never be replaced with the blank `state.js` template from the WeaveMap source repository when updating an existing installation.
 
-The observer displays both the WeaveMap runtime version and the project's state schema. The runtime metadata is also available in the browser as:
+The observer displays both the WeaveMap runtime version and the project's state schema. Runtime metadata is also available in the browser as:
 
 ```js
 window.WEAVEMAP_RUNTIME
-// { version: "0.6.1", schemaVersion: 4 }
+// { version: "0.7.0", schemaVersion: 4 }
 ```
 
-When asked to update WeaveMap in a host project, follow this procedure:
+When asked to update WeaveMap in a host project:
 
 1. Read the existing `weavemap/state.js` before changing anything.
 2. Make a temporary backup of that exact state file.
-3. Replace only `PROTOCOL.md`, `index.html`, `app.js`, and `style.css` with the latest WeaveMap runtime files.
+3. Replace only `PROTOCOL.md`, `index.html`, `app.js`, and `style.css` with the latest runtime files.
 4. Never replace the project's `state.js` with the source repository template.
 5. Read the newly installed `PROTOCOL.md` completely.
-6. Compare the existing `state.js` `schemaVersion` with the schema expected by the new runtime.
+6. Compare the existing state `schemaVersion` with the schema expected by the new runtime.
 7. If migration is required, migrate the **existing state in place**. Preserve project metadata, adoption findings and evidence, requirements, decisions, task IDs, statuses, dependencies, acceptance criteria, handoff notes, agents, and other project knowledge except where a compatible structural migration explicitly requires reshaping it.
-8. Open or otherwise validate the new observer and resolve every WeaveMap validation error.
+8. Validate the observer and resolve every WeaveMap validation error.
 9. Remove the temporary backup only after validation succeeds.
 10. Do not change host application code as part of a WeaveMap runtime update unless the user separately asked for application work.
 
-If the state schema is newer than the installed runtime supports, do not edit project state with the older runtime. Update the runtime first.
+If the state schema is newer than the installed runtime supports, update the runtime before editing state.
 
 ## Source of truth
 
-`weavemap/state.js` is the canonical project state. The UI derives waves, readiness, blockers, progress, and the recommended next task from it. Do not manually assign wave numbers.
+`weavemap/state.js` is the canonical project state. The UI derives waves, readiness, waiting, blockers, progress, and the recommended next task from it. Do not manually assign wave numbers.
 
-When WeaveMap is embedded in another repository, normally edit only `weavemap/state.js`. Do not modify `weavemap/index.html`, `weavemap/app.js`, or `weavemap/style.css` unless the user is explicitly developing WeaveMap itself or updating the WeaveMap runtime.
+When WeaveMap is embedded in another repository, normally edit only `weavemap/state.js`. Do not modify `weavemap/index.html`, `weavemap/app.js`, or `weavemap/style.css` unless the user is explicitly developing WeaveMap itself or updating the runtime.
 
 Keep `state.js` data-only: use JSON-compatible literals wrapped in `window.WEAVEMAP = ...`. Do not add functions, imports, computed properties, runtime expressions, or helper variables.
 
 ## Agent and model identity
-
-WeaveMap records which AI agents have worked on the project so the human observer can see the project's AI toolchain.
 
 Ensure `weavemap/state.js` contains an `agents` array. When you first work on the project, add one entry for your current agent/model combination if it is not already present:
 
@@ -89,7 +87,7 @@ Rules:
 
 - `name` is the agent or coding environment actually doing the work, such as `Codex`, `ChatGPT`, `Claude Code`, `Gemini CLI`, `Cursor`, `Windsurf`, or `GitHub Copilot`.
 - `model` is the exact model only when you can reliably identify it from your environment or system context.
-- Never infer or guess a model from the agent/provider name. If the exact model is unavailable, use `null`.
+- Never infer or guess a model from the agent/provider name. If unavailable, use `null`.
 - Do not duplicate an existing identical `name` + `model` pair.
 - If the same agent later uses a different known model, add a separate entry.
 - Keep this lightweight: do not add timestamps, token counts, or per-session logs unless the schema is explicitly extended later.
@@ -142,22 +140,20 @@ adoption: {
 Adoption rules:
 
 - Only put something in `established` when repository evidence or an explicit user statement supports it.
-- When a repository path supports an adoption finding, record the smallest useful set of repository-relative paths in `evidence`.
-- Evidence is for verification and handoff, not exhaustive citation. Prefer 1-3 high-value paths over long lists.
+- When a repository path supports a finding, record the smallest useful set of repository-relative paths in `evidence`.
+- Prefer 1–3 high-value evidence paths over exhaustive lists.
 - Put ambiguous or conflicting findings in `uncertainties`; do not guess.
 - Do not invent historical tasks and mark them `done` merely to recreate a fictional project history.
 - Existing implemented capabilities belong in the adoption baseline, not as fake completed tasks.
-- Create tasks for remaining work, clearly incomplete work, fixes, migrations, cleanup, missing tests, current roadmap items, and other actionable work that exists from the adoption point forward.
-- If the repository clearly shows a piece of work already in progress, it may be represented as an `active` task with a note that it predates WeaveMap adoption.
+- Create tasks for remaining work, incomplete work, fixes, migrations, cleanup, missing tests, current roadmap items, and other actionable work from the adoption point forward.
+- If the repository clearly shows work already in progress, it may be represented as `active` with a note that it predates WeaveMap adoption.
 - If future work relies on a capability already present at adoption, treat that capability as an established baseline rather than creating an artificial completed dependency task.
 - Every adoption gap must have a disposition: `tracked`, `deferred`, or `accepted`.
 - A `tracked` gap must reference at least one real task ID in `taskIds`.
-- `deferred` means the gap is intentionally postponed and should not silently block current execution.
+- `deferred` means intentionally postponed and should not silently block current execution.
 - `accepted` means the user or project has consciously accepted the gap or risk for now.
-- Progress shown by WeaveMap after adoption reflects the work tracked by WeaveMap from the adoption baseline forward, not the percentage of the project's entire historical lifetime.
-- Preserve the user's stated roadmap or current objective when it is available, but verify implementation state against the repository.
-
-The human UI displays the adoption baseline separately from the execution map.
+- Progress after adoption reflects work tracked from the adoption baseline forward, not the percentage of the project's entire historical lifetime.
+- Preserve the user's stated roadmap or current objective when available, but verify implementation state against the repository.
 
 ## First initialization
 
@@ -165,12 +161,12 @@ If `weavemap/state.js` has `initialized: false`:
 
 1. Inspect the host project and the user's stated goal.
 2. Determine and set `project.entryMode` to `"new"` or `"adopted"`.
-3. Set the project name, summary, and current high-level phase.
+3. Set project name, summary, and current high-level phase.
 4. Record your agent/model identity in `agents`.
-5. If the project is adopted, create the evidence-backed `adoption` baseline before planning future work. If it is new, leave `adoption` as `null`.
-6. Define only the workstreams the project actually needs. Examples may include Product, Architecture, Design, Frontend, Backend, Data, Infrastructure, QA, Security, Release, Mobile, AI, or Documentation. Do not create empty boilerplate workstreams.
+5. If adopted, create the evidence-backed `adoption` baseline before planning future work. If new, leave `adoption` as `null`.
+6. Define only workstreams the project actually needs.
 7. Add explicit requirements supported by the user's goal, project documentation, repository evidence, or clearly labeled agent proposals.
-8. Add known architectural/product decisions only when they are actually decided; distinguish discovered decisions from agent proposals.
+8. Add known architectural/product decisions only when actually decided; distinguish discovered decisions from agent proposals.
 9. Decompose actionable remaining work into tasks with meaningful dependency relationships.
 10. Validate that dependencies are acyclic and point to real task IDs.
 11. Ensure every adoption gap is tracked, deferred, or accepted.
@@ -199,50 +195,60 @@ Every task should contain:
 
 Allowed task statuses: `todo`, `active`, `blocked`, `done`, `skipped`.
 
-Effort is a relative AI-work estimate from 1 to 5. A task estimated at 5 should usually be decomposed before execution.
+Effort is a relative AI-work estimate from 1 to 5. A task estimated at 5 should usually be decomposed before execution. If a task contains several independently testable outcomes, split it even when total effort is below 5.
 
 Priority uses `P1` (highest) through `P5` (lowest).
 
-### Task notes are persistent handoff memory
+## Task notes are persistent handoff memory
 
 Every task must have a `notes` array. Notes are concise, persistent context for the next AI pass on that task.
 
-Before starting or continuing a task, read its `notes` before making implementation decisions. This applies even when the same agent is returning to the task in a later session.
+Before starting or continuing a task, read its `notes` before making implementation decisions. This applies even when the same agent is returning in a later session.
 
-Use notes for information that is useful to the next pass but does not belong in the stable task specification, for example:
+Use notes for information that is useful to the next pass but does not belong in the stable specification, such as:
 
 - partial findings and what has already been checked;
 - important file paths, commands, test results, or environment caveats;
 - failed approaches that should not be repeated;
 - user clarifications specific to the task;
 - implementation gotchas or unresolved questions;
-- handoff context when a task remains `active` or becomes `blocked`.
+- handoff context when a task remains active or becomes blocked.
 
-Keep notes short and actionable. Do not copy chat transcripts or duplicate the task `spec`. Update or remove stale notes when they would mislead the next agent.
+Keep notes short and actionable. Do not copy chat transcripts or duplicate the task `spec`. Update or remove stale AI notes when they would mislead the next agent.
 
-Human-written notes are prefixed with `Human:`. Treat them as explicit user context/instructions for that task unless the user later supersedes them. Do not silently delete or rewrite them merely because an agent disagrees with them.
+Human-written notes are prefixed with `Human:`. Treat them as explicit user context/instructions for that task unless the user later supersedes them. Do not silently delete or rewrite them merely because an agent disagrees.
 
-The observer's human note editor is merge-safe: immediately before saving, it re-reads the current `state.js`, finds the task in that latest state, appends only the new human note, and writes the merged state back. If the file changes during that operation, WeaveMap retries against the newer file. A human therefore does not need to refresh the observer before adding a note just because an AI may have changed `state.js`.
-
-Example:
-
-```js
-notes: [
-  "Scanner regression currently fails only on target_05.jpg; outer-ring detection was already ruled out.",
-  "Human: Do not change the backend contract while fixing this task.",
-  "Next pass: inspect cluster split threshold in scanner_v2/core/hole_detection.py before changing Hough parameters."
-]
-```
+The observer's human note editor is merge-safe: immediately before saving, it re-reads the current `state.js`, finds the task in that latest state, appends only the new human note, and writes the merged state back. If the file changes during that operation, WeaveMap retries against the newer file.
 
 ## Dependency semantics
 
-`dependsOn` is a hard execution dependency.
+`dependsOn` is a **hard execution dependency**.
 
 Add `A` to `B.dependsOn` only when task B cannot reasonably be executed or verified until task A is complete. Do not use hard dependencies merely because one task would be cleaner, nicer, safer, or more convenient to do first.
 
 If two tasks are independent, leave them independent so WeaveMap can expose parallel work in the ready frontier.
 
-Before adding a dependency, ask: **Would it be valid and useful to execute the downstream task now if the upstream task were still unfinished?** If yes, do not add the dependency.
+Before adding a dependency, ask:
+
+> Would it be valid and useful to execute the downstream task now if the upstream task were still unfinished?
+
+If yes, do not add the dependency.
+
+After building or materially changing the graph, perform a dependency sanity pass and remove convenience-only dependencies.
+
+## Waiting versus blocked
+
+WeaveMap derives **Waiting** automatically. Waiting is not a task status stored in `state.js`.
+
+- **Ready** = `status: "todo"` and every hard dependency is `done` or `skipped`.
+- **Waiting** = `status: "todo"` and one or more hard dependencies are unfinished.
+- **Blocked** = `status: "blocked"` because of a real obstacle that is not ordinary dependency sequencing.
+
+Do **not** mark a task `blocked` simply because another tracked task must finish first. Represent that relationship with `dependsOn`; the UI will show the downstream task as Waiting automatically.
+
+Use `blocked` only for things such as missing credentials, unavailable hardware, an unresolved external decision, inaccessible data, or another genuine obstacle not already represented by the graph.
+
+The observer includes a tooltip on Waiting explaining that it is normal dependency sequencing, not a problem or blocker.
 
 ## Execution rules
 
@@ -253,36 +259,35 @@ Before starting development work:
 3. Otherwise select a `todo` task whose dependencies are all `done` or `skipped`.
 4. Prefer, in order: higher priority, tasks that unblock more downstream work, then lower effort.
 5. Read the selected task's `notes` completely before deciding how to proceed.
-6. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
+6. Set the chosen task to `active` before substantial implementation begins.
 
 During work:
 
 - Keep the active task's `spec` stable enough for another agent to understand the intended work.
-- Add or update `notes` whenever a finding, failed approach, caveat, user clarification, or partial result would save the next pass from rediscovering it.
-- Preserve `Human:` notes unless the user explicitly supersedes or removes them.
-- When pausing an unfinished task, leave at least one useful handoff note when there is non-obvious context to preserve.
-- When new required work is discovered, create a new task in `weavemap/state.js` and connect only true hard dependencies instead of leaving an orphan TODO in chat or code.
+- Add or update `notes` when a finding, failed approach, caveat, user clarification, or partial result would save the next pass from rediscovering it.
+- When pausing unfinished work, leave a useful handoff note when there is non-obvious context to preserve.
+- When new required work is discovered, create a task in `state.js` and connect only true hard dependencies instead of leaving an orphan TODO in chat or code.
 - If a discovery changes requirements or architecture, update `requirements` or append a `decision` as appropriate.
 - Do not silently rewrite historical decisions; append a superseding decision.
-- If new work corresponds to an adoption gap, update that gap's `taskIds` and `disposition`.
-- Use `blocked` only for a real blocker not already represented by unfinished dependencies. Dependency blocking is calculated automatically by the UI.
+- If new work corresponds to an adoption gap, update that gap's `taskIds` and disposition.
+- Use `blocked` only for a real obstacle not already represented by unfinished dependencies.
 
 When work finishes:
 
 1. Verify the acceptance criteria.
-2. Remove or revise stale agent-authored handoff notes, while preserving any note that remains useful for future maintenance or downstream tasks and preserving `Human:` notes unless explicitly superseded by the user.
-3. Set the task to `done` in `weavemap/state.js`.
+2. Remove or revise stale AI handoff notes while preserving notes still useful for maintenance or downstream tasks.
+3. Set the task to `done`.
 4. Update related adoption gap dispositions if the work closes or changes a gap.
-5. Update project phase if the project has materially moved forward.
+5. Update project phase if the project materially moved forward.
 6. Re-read the graph before selecting the next task.
 
 ## Acceptance criteria fidelity
 
 Acceptance criteria may be inferred or proposed by the agent when needed, but they must not masquerade as established project requirements.
 
-- Do not invent arbitrary numeric thresholds, time limits, performance targets, compatibility guarantees, or regulatory requirements unless they are supported by the user, repository documentation, code, tests, or another explicit source.
+- Do not invent arbitrary numeric thresholds, time limits, performance targets, compatibility guarantees, or regulatory requirements unless supported by the user, repository documentation, code, tests, or another explicit source.
 - If no source establishes a numeric threshold, prefer a qualitative observable criterion.
-- If a speculative numeric threshold is genuinely useful, label it explicitly in the criterion as `Proposed:` so another agent and the human can distinguish it from established requirements.
+- If a speculative numeric threshold is useful, label it explicitly as `Proposed:`.
 
 Example:
 
@@ -311,11 +316,13 @@ Allowed requirement statuses: `active`, `satisfied`, `dropped`.
 
 Allowed origins:
 
-- `user` - explicitly stated by the user.
-- `repo` - established by repository code, tests, documentation, configuration, or version history.
-- `agent` - proposed or inferred by the AI and not yet established by the user or repository.
+- `user` — explicitly stated by the user.
+- `repo` — established by repository code, tests, documentation, configuration, or version history.
+- `agent` — proposed or inferred by the AI and not yet established by the user or repository.
 
-For `repo` requirements, include concise repository-relative `evidence` paths when available. For `user` or `agent` origins, `evidence` may be empty.
+For `repo` requirements, include concise repository-relative evidence paths when available. For `user` or `agent` origins, `evidence` may be empty.
+
+Agent-origin scope proposals are provisional. Do not automatically expand them into a large downstream production plan as though the user had committed to that scope.
 
 ## Decisions
 
@@ -337,13 +344,13 @@ Allowed decision statuses: `active`, `superseded`.
 
 Use the same `origin` values as requirements: `user`, `repo`, or `agent`.
 
-If a decision changes, add a new decision and set `supersedes` to the previous decision ID. Mark the superseded decision `status: "superseded"`.
+If a decision changes, add a new decision and set `supersedes` to the previous decision ID. Mark the previous decision `superseded`.
 
 ## State validation expectations
 
-Before relying on the project graph, ensure the state is internally valid. At minimum:
+Before relying on the graph, ensure the state is internally valid. At minimum:
 
-- the state schema matches the schema supported by the installed runtime;
+- state schema matches the schema supported by the installed runtime;
 - task, requirement, and decision IDs are unique within their collections;
 - task statuses are one of `todo`, `active`, `blocked`, `done`, `skipped`;
 - priorities are `P1` through `P5`;
@@ -351,18 +358,18 @@ Before relying on the project graph, ensure the state is internally valid. At mi
 - every task has a `notes` array containing only strings;
 - all dependencies reference real task IDs;
 - the dependency graph is acyclic;
-- requirement statuses and decision statuses are valid;
+- requirement and decision statuses are valid;
 - requirement and decision origins are `user`, `repo`, or `agent`;
 - adopted projects have an adoption baseline;
 - adoption gap dispositions are `tracked`, `deferred`, or `accepted`;
-- every `tracked` gap references at least one real task;
+- every tracked gap references at least one real task;
 - every gap `taskIds` entry references a real task.
 
-The observer UI performs defensive validation, but agents should avoid writing invalid state in the first place.
+The observer performs defensive validation, but agents should avoid writing invalid state in the first place.
 
 ## Human control
 
-The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, defer, accept, or redefine work. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
+The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, defer, accept, or redefine work. Update `state.js` so the repository reflects those decisions instead of relying on chat history.
 
 ## Using WeaveMap with common AI agents
 
@@ -374,6 +381,6 @@ Examples:
 - **Claude Code:** `Read weavemap/PROTOCOL.md and use WeaveMap as the project-management source of truth.`
 - **Gemini CLI:** `Read weavemap/PROTOCOL.md, inspect the repository, and maintain weavemap/state.js while working.`
 - **Cursor / Windsurf / Copilot-style agents:** `Before implementing, read weavemap/PROTOCOL.md and follow it for project planning and task state.`
-- **Other or future agents:** provide the same instruction: `Read weavemap/PROTOCOL.md and use WeaveMap to manage this project.`
+- **Other agents:** use the same instruction: `Read weavemap/PROTOCOL.md and use WeaveMap to manage this project.`
 
 Do not create agent-specific copies of this protocol unless a host project explicitly requires one. `weavemap/PROTOCOL.md` remains the single canonical instruction set.
