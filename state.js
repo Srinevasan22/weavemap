@@ -1,5 +1,5 @@
 window.WEAVEMAP = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   initialized: false,
   project: {
     name: "Uninitialized project",
