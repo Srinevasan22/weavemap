@@ -13,16 +13,18 @@ your-project/
 ├── src/
 ├── ...
 └── weavemap/
-    ├── AGENTS.md
+    ├── PROTOCOL.md
     ├── state.js
     ├── index.html
     ├── app.js
     └── style.css
 ```
 
-Then tell your coding AI:
+Then tell any coding AI:
 
-> Read `weavemap/AGENTS.md`, inspect this project, initialize WeaveMap, and use it as the project-management source of truth as you work.
+> Read `weavemap/PROTOCOL.md` and use WeaveMap to manage this project as you work.
+
+The protocol is agent-agnostic and includes examples for common AI coding agents. No agent-specific integration is required.
 
 Open `weavemap/index.html` in a browser whenever you want to inspect the project.
 
@@ -37,7 +39,7 @@ WeaveMap has:
 - no cloud service
 - no external JavaScript or CSS dependencies
 
-The project state lives in `state.js` and travels with the repository.
+The project state lives in `weavemap/state.js` and travels with the repository.
 
 ## Core model
 
