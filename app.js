@@ -49,6 +49,10 @@
     return value === undefined || (Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry.trim()));
   }
 
+  function validStringArray(value) {
+    return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+  }
+
   function validateState() {
     const errors = [];
     const visiting = new Set();
@@ -65,6 +69,7 @@
       if (!/^P[1-5]$/.test(String(task?.priority || ""))) errors.push(`${label} priority must be P1 through P5.`);
       if (!Number.isInteger(task?.effort) || task.effort < 1 || task.effort > 5) errors.push(`${label} effort must be an integer from 1 through 5.`);
       if (!Array.isArray(task?.dependsOn)) errors.push(`${label} dependsOn must be an array.`);
+      if (!validStringArray(task?.notes)) errors.push(`${label} notes must be an array of strings.`);
       for (const dependencyId of dependencies(task)) {
         if (!byId.has(dependencyId)) errors.push(`${label} depends on missing task ${dependencyId}.`);
         if (dependencyId === task.id) errors.push(`${label} cannot depend on itself.`);
@@ -464,7 +469,7 @@
       <h3>Unblocks</h3>
       <p>${unblocks.length ? escapeHtml(unblocks.join(", ")) : "None"}</p>
       ${acceptance.length ? `<h3>Acceptance criteria</h3><ul>${acceptance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-      ${notes.length ? `<h3>Notes</h3><ul>${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+      ${notes.length ? `<h3>Handoff notes</h3><ul>${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
     `;
     $("task-dialog").showModal();
   }
