@@ -2,9 +2,9 @@
 
 **Project management for AI. A map for humans.**
 
-**Current runtime:** `v0.9.0` · **State schema:** `v4`
+**Current runtime:** `v1.0.0` · **State schema:** `v4`
 
-WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, task state, dependencies, evidence, requirements, decisions, handoff notes, approval gates, verification instructions, and lightweight completion provenance. The human opens a static observer to see what can run now, what is waiting normally, what genuinely needs intervention, and how work moves through dependency waves.
+WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains project state, dependencies, provenance, requirements, decisions, handoff notes, approval gates, verification instructions, requirement coverage, and lightweight completion evidence. The human opens a static observer to see what can run now, what is waiting normally, what genuinely needs intervention, and how work moves through dependency waves.
 
 ## Drop it into a project
 
@@ -32,17 +32,17 @@ Open `weavemap/index.html` whenever you want to inspect or steer the project.
 
 WeaveMap has two independent versions:
 
-- **Runtime version** — observer/protocol release, currently `v0.9.0`.
+- **Runtime version** — observer/protocol release, currently `v1.0.0`.
 - **State schema version** — durable project-data structure in `state.js`, currently `v4`.
 
 The runtime version is visible in the observer header and exposed as:
 
 ```js
 window.WEAVEMAP_RUNTIME
-// { version: "0.9.0", schemaVersion: 4 }
+// { version: "1.0.0", schemaVersion: 4 }
 ```
 
-Runtime `v0.9.0` adds only optional task metadata, so existing schema-v4 projects do **not** require migration.
+Runtime `v1.0.0` adds only optional task metadata and derived observer features, so existing schema-v4 projects do **not** require migration.
 
 ## New or already in progress
 
@@ -62,7 +62,7 @@ Give your coding agent the repository URL and use:
 > Read `weavemap/PROTOCOL.md`, inspect the existing project, and initialize WeaveMap in adoption mode.  
 > For the first pass, do not implement application changes. Only analyze the project and populate WeaveMap accurately.
 
-Then review the baseline, evidence, dependencies, Ready Frontier, Waiting tasks, genuine Blockers, Needs Human gates, and agent/model information.
+Then review the baseline, evidence, requirement coverage, dependencies, Ready Frontier, Waiting tasks, genuine Blockers, Needs Human gates, coordination warnings, and agent/model information.
 
 ## Safe updates without losing project data
 
@@ -109,9 +109,9 @@ You can also tell an AI:
 
 The observer includes tooltips so Waiting and Needs Human are not confused with blockers.
 
-## Human control — v0.8 foundation
+## Human control
 
-The observer can now steer the project directly through merge-safe edits to the latest `state.js`:
+The observer can steer the project directly through merge-safe edits to the latest `state.js`:
 
 - add human handoff notes;
 - change priority;
@@ -136,9 +136,25 @@ humanApproval: {
 
 A pending gate appears under **Needs human**. The AI must not approve it by assumption. Typical uses include art direction, product scope, publishing, destructive migrations, and release approval.
 
-## Agent execution — v0.9
+## Agent execution metadata
 
-Three optional task fields reduce rediscovery and make multi-agent work safer.
+Optional fields reduce rediscovery and make multi-agent work safer.
+
+### Task origin
+
+```js
+origin: "user" // or "repo" / "agent"
+```
+
+This makes the source of work visible. `origin: "agent"` means AI-proposed work, not automatically committed product scope.
+
+### Requirement coverage
+
+```js
+requirementIds: ["R-002", "R-006"]
+```
+
+The observer derives active requirement coverage from these links and highlights active requirements with no non-skipped task coverage. This is a planning signal, not automatically an error.
 
 ### Expected edit scope
 
@@ -148,7 +164,7 @@ affectedPaths: [
 ]
 ```
 
-This is advisory, not a file lock. It tells agents where a task is expected to touch code and makes likely parallel-edit conflicts easier to spot.
+This is advisory, not a file lock. WeaveMap now compares `affectedPaths` for ready/active tasks and surfaces likely parallel-edit collisions as coordination warnings.
 
 ### Verification command
 
@@ -160,31 +176,45 @@ verification: {
 
 The browser does not execute this command. It is an instruction for the coding agent so it can prove acceptance without rediscovering the correct test command every session.
 
-### Completion provenance
+### Structured verification result
+
+New task completions can record exactly what happened:
 
 ```js
 completion: {
   by: "Antigravity",
   commit: "dbf2d95",
-  verification: "py scanner_v2/test_regression.py"
+  verification: {
+    command: "py scanner_v2/test_regression.py",
+    result: "passed"
+  }
 }
 ```
 
-This records who closed the task, which commit is relevant when known, and what verification actually ran. Dates are intentionally omitted.
+Supported results are `passed`, `failed`, `not-run`, `human-override`, and `not-applicable`. A task cannot validly be `done` with a structured `failed` result.
+
+Legacy v0.9 string-form verification remains readable, but agents should use the structured form for new completions.
+
+## Search and scaling
+
+For larger projects, the observer now includes:
+
+- task search across IDs, titles, specs, notes, workstreams, expected paths, origins, and linked requirement IDs;
+- workstream filter;
+- state filter;
+- Hide Done toggle;
+- Compact / Detailed card toggle;
+- derived requirement coverage;
+- derived path-overlap coordination warnings;
+- separate Waiting, Needs Human, and genuine Blockers sections.
+
+The map remains useful for architecture and dependency visibility, while the Ready Frontier / Needs Human / Blockers panels support day-to-day work.
 
 ## Persistent task handoff notes
 
 Every task has `notes: []`. Agents must read them before starting or resuming work.
 
-Use them for concise context such as:
-
-- findings already checked;
-- test results;
-- failed approaches;
-- useful file paths/commands;
-- environment caveats;
-- user clarifications;
-- what the next pass should try.
+Use them for concise context such as findings already checked, test results, failed approaches, useful file paths/commands, environment caveats, user clarifications, and what the next pass should try.
 
 Human notes are prefixed `Human:`.
 
@@ -199,7 +229,7 @@ Schema v4 keeps adopted-project knowledge verifiable:
 - tracked gaps point to tasks;
 - requirements and decisions carry `origin: "user" | "repo" | "agent"`;
 - agent-origin scope is explicitly provisional, not automatically committed production scope;
-- the observer validates IDs, statuses, priorities, effort, dependencies, cycles, provenance, gaps, notes, approval metadata, verification metadata, affected paths, and completion metadata.
+- the observer validates IDs, statuses, priorities, effort, dependencies, cycles, provenance, requirement links, gaps, notes, approval metadata, verification metadata, affected paths, and completion metadata.
 
 ## Planning-quality rules
 
@@ -208,24 +238,11 @@ WeaveMap tells agents to:
 - split tasks that contain multiple independently testable outcomes, even if total effort is below 5;
 - use `dependsOn` only for true hard dependencies;
 - run a dependency sanity pass after initial planning or major replanning;
+- review uncovered active requirements before finalizing a plan;
 - keep agent-proposed scope provisional until the user commits to it;
-- create explicit human approval gates for material scope decisions.
-
-These rules came directly from testing WeaveMap on larger existing projects where over-bundled tasks and convenience dependencies made the map less useful.
-
-## Observer scaling
-
-For larger projects the execution map now includes:
-
-- workstream filter;
-- state filter;
-- Hide Done toggle;
-- Compact / Detailed card toggle;
-- a separate collapsed Waiting section;
-- a dedicated Needs Human list;
-- a Blockers list containing only genuine obstacles.
-
-The map remains useful for architecture and dependency visibility, while the Ready Frontier / Needs Human / Blockers panels support day-to-day work.
+- create explicit human approval gates for material scope decisions;
+- check `affectedPaths` overlap before parallel work;
+- record verification results rather than merely claiming a task is done.
 
 ## No install
 
