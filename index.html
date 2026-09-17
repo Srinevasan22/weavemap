@@ -672,10 +672,189 @@
     .weave-canvas-inner.compact .weave-row { min-height: 78px; }
     .weave-canvas-inner.compact .weave-card { padding: 7px 10px; max-width: 200px; }
     .weave-canvas-inner.compact .card-title { font-size: 10.5px; -webkit-line-clamp: 1; }
+    /* Existing Project Baseline & Middle Panels */
+    .panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .card-established {
+      border-top: 3px solid #10b981 !important;
+    }
+    .card-established h3 {
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+    .card-gaps {
+      border-top: 3px solid #f59e0b !important;
+    }
+    .card-gaps h3 {
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+    .card-uncertainties {
+      border-top: 3px solid #ef4444 !important;
+    }
+    .card-uncertainties h3 {
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+    .mode-badge {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #475467;
+      letter-spacing: 0.05em;
+    }
+    .next-label {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+      text-transform: uppercase;
+    }
+    .coverage-summary {
+      color: #2563eb;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .requirement-row {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #ffffff;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .requirement-row.uncovered {
+      border-color: #fde68a !important;
+      background: #fffbeb !important;
+    }
+    .coverage-warning {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .waiting-panel {
+      margin-top: 16px;
+    }
+    .waiting-panel summary {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+    .waiting-summary-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .waiting-count {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+    .requirements-panel summary {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-weight: 750;
+      font-size: 15px;
+      color: #0f172a;
+    }
+    .baseline-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .baseline-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #f8fafc;
+    }
+    .baseline-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #475467;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .baseline-card li + li {
+      margin-top: 10px;
+    }
+    .baseline-meta {
+      display: block;
+      margin-top: 3px;
+      color: #94a3b8;
+      font-size: 10.5px;
+      line-height: 1.35;
+    }
+    .agent-chip {
+      min-width: 170px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: grid;
+      gap: 3px;
+      background: #f8fafc;
+    }
+    .agent-chip strong {
+      font-size: 13px;
+      color: #0f172a;
+    }
+    .agent-chip span {
+      color: #64748b;
+      font-size: 11px;
+    }
 
     @media (max-width: 1024px) {
       .stats { grid-template-columns: repeat(3, 1fr); }
       .work-columns { grid-template-columns: 1fr; }
+      .baseline-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 768px) {
       .stats { grid-template-columns: 1fr 1fr; }
@@ -783,31 +962,68 @@
       </article>
     </section>
  
-    <!-- WeaveMap Runtime Compatibility Layer (Allows app.js handlers and state sync to run seamlessly) -->
-    <div id="weavemap-compat-layer" style="display:none !important;" aria-hidden="true">
-      <span id="current-wave"></span>
-      <span id="waiting-list-count"></span>
-      <div id="adoption-panel">
-        <span id="adoption-summary"></span>
-        <ul id="adoption-established"></ul>
-        <ul id="adoption-gaps"></ul>
-        <ul id="adoption-uncertainties"></ul>
+    <!-- Helper for app.js wave computation -->
+    <span id="current-wave" style="display:none;"></span>
+
+    <!-- 1. Existing project baseline -->
+    <section id="adoption-panel" class="panel adoption-panel hidden">
+      <div class="section-heading">
+        <div>
+          <h2>Existing project baseline</h2>
+          <p>What WeaveMap found when it joined this project midstream. Execution progress starts from this baseline.</p>
+        </div>
+        <span class="mode-badge">Adopted</span>
       </div>
-      <div id="agent-list"></div>
-      <span id="agent-count"></span>
-      <details id="requirements-panel">
-        <div id="requirement-list"></div>
-        <span id="requirement-coverage-summary"></span>
-      </details>
-      <div id="conflict-panel">
-        <div id="conflict-list"></div>
-        <span id="conflict-count"></span>
+      <p id="adoption-summary" class="baseline-summary"></p>
+      <div class="baseline-grid">
+        <article class="baseline-card card-established">
+          <h3>Established</h3>
+          <ul id="adoption-established"></ul>
+        </article>
+        <article class="baseline-card card-gaps">
+          <h3>Gaps</h3>
+          <ul id="adoption-gaps"></ul>
+        </article>
+        <article class="baseline-card card-uncertainties">
+          <h3>Uncertainties</h3>
+          <ul id="adoption-uncertainties"></ul>
+        </article>
       </div>
-      <div id="search-results-panel">
-        <div id="search-results"></div>
-        <span id="search-result-count"></span>
+    </section>
+
+    <!-- 2. Agents used -->
+    <section class="panel agents-panel">
+      <div class="section-heading compact">
+        <div>
+          <h2>Agents used</h2>
+          <p>AI agents and exact models recorded by the agents themselves.</p>
+        </div>
+        <span id="agent-count" class="next-label"></span>
       </div>
-    </div>
+      <div id="agent-list" class="agent-list"></div>
+    </section>
+
+    <!-- 3. Requirement coverage -->
+    <details id="requirements-panel" class="panel requirements-panel" open>
+      <summary>
+        <span>Requirement coverage</span>
+        <span id="requirement-coverage-summary" class="coverage-summary"></span>
+      </summary>
+      <p class="panel-help">Active requirements should be linked to the task or tasks that deliver them. Uncovered requirements are a planning signal, not automatically a validation error.</p>
+      <div id="requirement-list" class="requirement-list"></div>
+    </details>
+
+    <!-- 4. Coordination warnings (hidden unless conflicts exist) -->
+    <section id="conflict-panel" class="panel conflict-panel hidden">
+      <div class="section-heading compact">
+        <div>
+          <h2>Coordination warnings</h2>
+          <p>Ready or active tasks have overlapping expected edit scopes. This is advisory, not a file lock.</p>
+        </div>
+        <span id="conflict-count" class="warning-count"></span>
+      </div>
+      <div id="conflict-list" class="conflict-list"></div>
+    </section>
 
     <!-- =======================================================================
          The Weave Main Dashboard Panel (Matching Image 1)
@@ -854,6 +1070,12 @@
           <input id="hide-done" type="checkbox" style="display:none;">
           <button class="btn-more" type="button" title="More options">···</button>
         </div>
+      </div>
+
+      <!-- Search Results Panel -->
+      <div id="search-results-panel" class="search-results-panel hidden">
+        <div class="section-heading compact"><h3>Search results</h3><span id="search-result-count" class="next-label"></span></div>
+        <div id="search-results" class="task-list"></div>
       </div>
 
       <!-- The Canvas Viewport -->
@@ -962,6 +1184,16 @@
         </div>
       </article>
     </section>
+ 
+    <!-- Waiting on dependencies -->
+    <details class="panel waiting-panel">
+      <summary>
+        <span class="waiting-summary-title">Waiting on dependencies <span class="info-tooltip" tabindex="0" role="img" aria-label="Waiting means tasks that cannot start yet because dependencies are unfinished. This is normal sequencing, not a blocker." data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker.">?</span></span>
+        <span id="waiting-list-count" class="waiting-count">0</span>
+      </summary>
+      <p class="waiting-help">These tasks become ready automatically when their required predecessor tasks are completed or skipped.</p>
+      <div id="waiting-list" class="task-list waiting-list"></div>
+    </details>
 
     <!-- Task Dialog Modal -->
     <dialog id="task-dialog"><button class="dialog-close" aria-label="Close">×</button><div id="task-detail"></div></dialog>

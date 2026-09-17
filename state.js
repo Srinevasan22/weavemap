@@ -40,6 +40,20 @@ window.WEAVEMAP = {
           "frontend/lib/services/ble_heart_rate_service.dart",
           "frontend/lib/services/smartwatch_service.dart"
         ]
+      },
+      {
+        "text": "Admin/registration and raw agreement compliance workflows (scanner consent, account sanction, Play Data Safety disclosure).",
+        "evidence": [
+          "frontend/lib/screens/login_page.dart",
+          "docs/privacy_policy.md"
+        ]
+      },
+      {
+        "text": "Backend test suite using Jest and mongodb-memory-server, and Flutter widget and unit test coverage.",
+        "evidence": [
+          "backend/test/scan.test.js",
+          "frontend/test/widget_test.dart"
+        ]
       }
     ],
     "gaps": [
@@ -55,7 +69,7 @@ window.WEAVEMAP = {
         "disposition": "tracked"
       },
       {
-        "text": "Deprecation and transition path from legacy backend scanner scripts to standalone scanner_v2 pipeline.",
+        "text": "Deprecation and migration path from legacy backend scanner scripts to standalone scanner_v2 pipeline.",
         "evidence": [
           "backend/controller/scanController.js"
         ],
@@ -65,12 +79,22 @@ window.WEAVEMAP = {
         "disposition": "tracked"
       },
       {
-        "text": "Comprehensive integration testing between frontend target re-analysis dialog and backend credit deduction.",
+        "text": "Comprehensive integration testing between frontend target re-analysis dialog, scan credit deduction, and backend subscription ledger.",
         "evidence": [
           "frontend/lib/screens/session_detail_page.dart"
         ],
         "taskIds": [
           "T-004"
+        ],
+        "disposition": "tracked"
+      },
+      {
+        "text": "Stress testing of BLE background connection recovery under aggressive OS battery optimization.",
+        "evidence": [
+          "frontend/lib/services/ble_heart_rate_service.dart"
+        ],
+        "taskIds": [
+          "T-005"
         ],
         "disposition": "tracked"
       }
@@ -80,6 +104,12 @@ window.WEAVEMAP = {
         "text": "Production deployment architecture and secrets rotation lifecycle for api.srinevasan.com/pistol host environment.",
         "evidence": [
           "backend/docs/deployment.md"
+        ]
+      },
+      {
+        "text": "Final AdMob network ID configuration and App Store / Play Store Connect client sync transitions state across release branches.",
+        "evidence": [
+          "frontend/lib/services/ad_service.dart"
         ]
       }
     ]
@@ -93,7 +123,7 @@ window.WEAVEMAP = {
   "requirements": [
     {
       "id": "R-001",
-      "text": "Accurate automatic scoring of ISSF 10m air pistol targets conforming to caliper gauge rules.",
+      "text": "Accurate automatic scoring of ISSF 10m air pistol targets conforming to caliper gauge rules (inward touch rule).",
       "status": "active",
       "origin": "repo",
       "evidence": [
@@ -111,7 +141,7 @@ window.WEAVEMAP = {
     },
     {
       "id": "R-003",
-      "text": "Continuous physiological telemetry (BLE heart rate) correlated with individual shots.",
+      "text": "Continuous physiological telemetry (BLE heart rate) correlated with individual shots and target series.",
       "status": "active",
       "origin": "repo",
       "evidence": [
@@ -120,7 +150,16 @@ window.WEAVEMAP = {
     },
     {
       "id": "R-004",
-      "text": "Target re-analysis capability allowing athletes to re-scan targets with updated detection parameters.",
+      "text": "Offline-first session capture with cloud synchronization upon network restoration.",
+      "status": "active",
+      "origin": "repo",
+      "evidence": [
+        "frontend/lib/services/session_service.dart"
+      ]
+    },
+    {
+      "id": "R-005",
+      "text": "Target re-analysis capability allowing athletes to re-scan targets with updated detection parameters at the cost of 1 scan credit.",
       "status": "active",
       "origin": "repo",
       "evidence": [
@@ -128,7 +167,7 @@ window.WEAVEMAP = {
       ]
     },
     {
-      "id": "R-005",
+      "id": "R-007",
       "text": "Gamification and player retention via Google Play Games Services achievement tracking.",
       "status": "active",
       "origin": "user",
@@ -242,7 +281,7 @@ window.WEAVEMAP = {
       "dependsOn": [],
       "origin": "repo",
       "requirementIds": [
-        "R-004"
+        "R-005"
       ],
       "affectedPaths": [
         "backend/controller/subscriptionController.js"
@@ -313,7 +352,7 @@ window.WEAVEMAP = {
       "dependsOn": [],
       "origin": "user",
       "requirementIds": [
-        "R-005"
+        "R-007"
       ],
       "affectedPaths": [
         "frontend/lib/services/achievement_service.dart"

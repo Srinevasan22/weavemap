@@ -778,6 +778,7 @@
     const panel = $("search-results-panel");
     const list = $("search-results");
     const count = $("search-result-count");
+    if (!panel || !list) return;
 
     if (!searchQuery) {
       panel.classList.add("hidden");
