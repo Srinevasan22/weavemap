@@ -2,7 +2,7 @@
 
 **Project management for AI. A map for humans.**
 
-**Current runtime:** `v0.6.0` · **State schema:** `v4`
+**Current runtime:** `v0.6.1` · **State schema:** `v4`
 
 WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, dependencies, evidence, handoff notes, and its own agent/model identity. The human opens a static execution map to see what is done, what is ready, what is blocked, which AI agents have worked on the project, and how work progresses through dependency **waves**.
 
@@ -34,14 +34,14 @@ Open `weavemap/index.html` in a browser whenever you want to inspect the project
 
 WeaveMap has two independent versions:
 
-- **Runtime version** — the observer/protocol release, currently `v0.6.0`.
+- **Runtime version** — the observer/protocol release, currently `v0.6.1`.
 - **State schema version** — the structure of project data in `state.js`, currently `v4`.
 
 The runtime version is visible directly in the WeaveMap header. The same metadata is exposed in the browser as:
 
 ```js
 window.WEAVEMAP_RUNTIME
-// { version: "0.6.0", schemaVersion: 4 }
+// { version: "0.6.1", schemaVersion: 4 }
 ```
 
 A runtime patch or feature release does not necessarily require a state migration. The state schema only changes when the durable project-data structure changes.
@@ -141,6 +141,7 @@ Every task contains a `notes` array. It is persistent project memory for the **n
   // ...
   notes: [
     "Failure is isolated to target_05.jpg; outer-ring detection was already ruled out.",
+    "Human: Do not change the backend contract while fixing this task.",
     "Next pass: inspect the cluster split threshold before changing Hough parameters."
   ]
 }
@@ -148,27 +149,25 @@ Every task contains a `notes` array. It is persistent project memory for the **n
 
 Before an agent starts or resumes a task, the WeaveMap protocol requires it to read the task's notes. During work, the agent should preserve concise findings, failed approaches, useful paths, test results, user clarifications, blockers, and other context that would otherwise have to be rediscovered in a later session.
 
+Human notes are prefixed with `Human:` so agents can distinguish explicit user context from AI-generated handoff notes.
+
+### Merge-safe human note saving
+
+From runtime `v0.6.1`, saving a human note does **not** write the browser's potentially stale in-memory project snapshot back over `state.js`.
+
+Instead WeaveMap:
+
+1. reads the current `state.js` immediately before saving;
+2. locates the same task in that latest state;
+3. appends only the new `Human:` note;
+4. checks whether the file changed during the merge and retries if necessary;
+5. writes the merged latest state back.
+
+So you do **not** need to refresh WeaveMap before writing a note just because an AI may have updated `state.js` since the page was opened. Newer AI task/status/note changes are preserved.
+
+On browsers without direct local-file write access, WeaveMap asks you to select the current `state.js`, merges the note into that file, and downloads the merged replacement.
+
 Notes are not a chat log or permanent history. They should remain short, actionable, and updated when information becomes stale.
-
-## Write a note directly from the task view
-
-Runtime `v0.6.0` adds a human note editor directly inside every task dialog.
-
-Open a task and use **Add a note for the next AI pass**. When saved, WeaveMap appends the text to that task's `notes` array with a `Human:` prefix, for example:
-
-```js
-notes: [
-  "Human: Keep the existing API contract; solve this in the Flutter client first."
-]
-```
-
-The protocol tells the next AI to treat `Human:` notes as explicit user context and review them before continuing the task.
-
-On supported Chromium-based browsers, the first save asks you to select the existing `weavemap/state.js` file and then writes the updated state directly to that file. WeaveMap reuses the selected file for later note saves during the same page session.
-
-If direct local-file writing is unavailable, WeaveMap downloads an updated `state.js` instead. Replace the project's existing `weavemap/state.js` with that downloaded file to make the note durable for the next AI pass.
-
-Because the observer edits the state that was loaded when the page opened, refresh WeaveMap before adding a note if an AI has modified `state.js` since you opened the page.
 
 ## No install
 
@@ -186,7 +185,7 @@ The project state lives in `weavemap/state.js` and travels with the repository.
 ## Core model
 
 - **Tasks** contain the goal, implementation spec, acceptance criteria, effort, priority, status, hard dependencies, and persistent handoff notes.
-- **Task notes** carry concise context that the next AI pass must review before continuing the task. Humans can write explicit `Human:` notes from the observer.
+- **Task notes** carry concise context that the next AI pass must review before continuing the task.
 - **Dependencies** are the structural source of truth.
 - **Waves** are calculated dependency depths, not dates or weeks.
 - **Ready frontier** is the set of work that can execute now.
