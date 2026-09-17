@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WeaveMap</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="brand">WeaveMap</div>
+        <h1 id="project-name">Project</h1>
+        <p id="project-summary" class="muted"></p>
+      </div>
+      <div class="phase" id="project-phase"></div>
+    </header>
+
+    <section id="onboarding" class="onboarding hidden">
+      <strong>WeaveMap is ready.</strong>
+      <span>Ask your AI to read <code>AGENTS.md</code> and initialize <code>state.js</code> for this project.</span>
+    </section>
+
+    <section id="validation" class="validation hidden"></section>
+
+    <section class="stats" aria-label="Project status">
+      <article><span>Progress</span><strong id="progress">0%</strong></article>
+      <article><span>Current wave</span><strong id="current-wave">—</strong></article>
+      <article><span>Ready</span><strong id="ready-count">0</strong></article>
+      <article><span>Blocked</span><strong id="blocked-count">0</strong></article>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <h2>Execution map</h2>
+          <p>Horizontal position is dependency depth, not time.</p>
+        </div>
+        <div class="legend">
+          <span><i class="dot done"></i>Done</span>
+          <span><i class="dot active"></i>Active</span>
+          <span><i class="dot ready"></i>Ready</span>
+          <span><i class="dot blocked"></i>Blocked</span>
+        </div>
+      </div>
+      <div id="execution-map" class="execution-map"></div>
+    </section>
+
+    <section class="columns">
+      <article class="panel">
+        <div class="section-heading compact">
+          <h2>Ready frontier</h2>
+          <span id="next-label" class="next-label"></span>
+        </div>
+        <div id="ready-list" class="task-list"></div>
+      </article>
+
+      <article class="panel">
+        <div class="section-heading compact">
+          <h2>Blockers</h2>
+        </div>
+        <div id="blocked-list" class="task-list"></div>
+      </article>
+    </section>
+  </main>
+
+  <dialog id="task-dialog">
+    <button class="dialog-close" aria-label="Close">×</button>
+    <div id="task-detail"></div>
+  </dialog>
+
+  <script src="state.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
