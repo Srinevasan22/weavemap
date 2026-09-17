@@ -13,7 +13,7 @@
         <div class="brand-row">
           <div class="brand">WeaveMap</div>
           <button id="update-button" class="version-badge" type="button" title="View safe update instructions">
-            <strong id="runtime-version">v0.7.0</strong>
+            <strong id="runtime-version">v0.9.0</strong>
             <span id="schema-version">state schema</span>
           </button>
         </div>
@@ -25,9 +25,8 @@
 
     <section id="onboarding" class="onboarding hidden">
       <strong>WeaveMap is ready.</strong>
-      <span>Ask your AI to read <code>weavemap/PROTOCOL.md</code> and use WeaveMap to manage this project as it works. The AI will detect whether this is a new or existing project and initialize it accordingly.</span>
+      <span>Ask your AI to read <code>weavemap/PROTOCOL.md</code> and use WeaveMap to manage this project as it works.</span>
     </section>
-
     <section id="validation" class="validation hidden"></section>
 
     <section class="stats" aria-label="Project status">
@@ -35,135 +34,88 @@
       <article><span>Current wave</span><strong id="current-wave">—</strong></article>
       <article><span>Ready</span><strong id="ready-count">0</strong></article>
       <article>
-        <span class="stat-label">Waiting
-          <button
-            class="info-tooltip"
-            type="button"
-            aria-label="Waiting means tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a blocker."
-            data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker."
-          >?</button>
-        </span>
+        <span class="stat-label">Waiting <button class="info-tooltip" type="button" aria-label="Waiting means tasks that cannot start yet because dependencies are unfinished. This is normal sequencing, not a blocker." data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker.">?</button></span>
         <strong id="waiting-count">0</strong>
+      </article>
+      <article>
+        <span class="stat-label">Needs human <button class="info-tooltip" type="button" aria-label="Needs human means a task has reached an explicit human approval gate." data-tooltip="Tasks at an explicit human approval gate. AI must not approve these gates on its own.">?</button></span>
+        <strong id="needs-human-count">0</strong>
       </article>
       <article><span>Blocked</span><strong id="blocked-count">0</strong></article>
     </section>
 
     <section id="adoption-panel" class="panel adoption-panel hidden">
       <div class="section-heading">
-        <div>
-          <h2>Existing project baseline</h2>
-          <p>What WeaveMap found when it joined this project midstream. Execution progress starts from this baseline.</p>
-        </div>
+        <div><h2>Existing project baseline</h2><p>What WeaveMap found when it joined this project midstream. Execution progress starts from this baseline.</p></div>
         <span class="mode-badge">Adopted</span>
       </div>
       <p id="adoption-summary" class="baseline-summary"></p>
       <div class="baseline-grid">
-        <article class="baseline-card">
-          <h3>Established</h3>
-          <ul id="adoption-established"></ul>
-        </article>
-        <article class="baseline-card">
-          <h3>Gaps</h3>
-          <ul id="adoption-gaps"></ul>
-        </article>
-        <article class="baseline-card">
-          <h3>Uncertainties</h3>
-          <ul id="adoption-uncertainties"></ul>
-        </article>
+        <article class="baseline-card"><h3>Established</h3><ul id="adoption-established"></ul></article>
+        <article class="baseline-card"><h3>Gaps</h3><ul id="adoption-gaps"></ul></article>
+        <article class="baseline-card"><h3>Uncertainties</h3><ul id="adoption-uncertainties"></ul></article>
       </div>
     </section>
 
     <section class="panel agents-panel">
-      <div class="section-heading compact">
-        <div>
-          <h2>Agents used</h2>
-          <p>AI agents and exact models recorded by the agents themselves.</p>
-        </div>
-        <span id="agent-count" class="next-label"></span>
-      </div>
+      <div class="section-heading compact"><div><h2>Agents used</h2><p>AI agents and exact models recorded by the agents themselves.</p></div><span id="agent-count" class="next-label"></span></div>
       <div id="agent-list" class="agent-list"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel map-panel">
       <div class="section-heading">
-        <div>
-          <h2>Execution map</h2>
-          <p>Horizontal position is dependency depth, not time.</p>
-        </div>
+        <div><h2>Execution map</h2><p>Horizontal position is dependency depth, not time.</p></div>
         <div class="legend">
-          <span><i class="dot done"></i>Done</span>
-          <span><i class="dot active"></i>Active</span>
-          <span><i class="dot ready"></i>Ready</span>
-          <span><i class="dot waiting"></i>Waiting</span>
-          <span><i class="dot blocked"></i>Blocked</span>
+          <span><i class="dot done"></i>Done</span><span><i class="dot active"></i>Active</span><span><i class="dot ready"></i>Ready</span><span><i class="dot waiting"></i>Waiting</span><span><i class="dot approval"></i>Needs human</span><span><i class="dot blocked"></i>Blocked</span>
         </div>
+      </div>
+      <div class="map-controls" aria-label="Execution map filters">
+        <label>Workstream <select id="filter-workstream"></select></label>
+        <label>State
+          <select id="filter-state">
+            <option value="all">All states</option>
+            <option value="ready">Ready</option>
+            <option value="active">Active</option>
+            <option value="waiting">Waiting</option>
+            <option value="approval">Needs human</option>
+            <option value="blocked">Blocked</option>
+            <option value="done">Done / skipped</option>
+          </select>
+        </label>
+        <label class="check-control"><input id="hide-done" type="checkbox"> Hide done</label>
+        <button id="density-toggle" class="secondary-button" type="button">Compact cards</button>
       </div>
       <div id="execution-map" class="execution-map"></div>
     </section>
 
-    <section class="columns">
-      <article class="panel">
-        <div class="section-heading compact">
-          <h2>Ready frontier</h2>
-          <span id="next-label" class="next-label"></span>
-        </div>
-        <div id="ready-list" class="task-list"></div>
-      </article>
-
-      <article class="panel">
-        <div class="section-heading compact">
-          <div>
-            <h2>Blockers</h2>
-            <p>Only real obstacles are shown here. Dependency waiting is tracked separately.</p>
-          </div>
-        </div>
-        <div id="blocked-list" class="task-list"></div>
-      </article>
+    <section class="work-columns">
+      <article class="panel"><div class="section-heading compact"><h2>Ready frontier</h2><span id="next-label" class="next-label"></span></div><div id="ready-list" class="task-list"></div></article>
+      <article class="panel needs-human-panel"><div class="section-heading compact"><div><h2>Needs human</h2><p>Explicit approval gates waiting for you.</p></div></div><div id="needs-human-list" class="task-list"></div></article>
+      <article class="panel"><div class="section-heading compact"><div><h2>Blockers</h2><p>Only real obstacles. Dependency waiting is separate.</p></div></div><div id="blocked-list" class="task-list"></div></article>
     </section>
 
     <details class="panel waiting-panel">
       <summary>
-        <span class="waiting-summary-title">Waiting on dependencies
-          <span
-            class="info-tooltip"
-            tabindex="0"
-            role="img"
-            aria-label="Waiting means tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a blocker."
-            data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker."
-          >?</span>
-        </span>
+        <span class="waiting-summary-title">Waiting on dependencies <span class="info-tooltip" tabindex="0" role="img" aria-label="Waiting means tasks that cannot start yet because dependencies are unfinished. This is normal sequencing, not a blocker." data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker.">?</span></span>
         <span id="waiting-list-count" class="waiting-count">0</span>
       </summary>
-      <p class="waiting-help">These tasks are not problems. They become ready automatically when their required predecessor tasks are completed or skipped.</p>
+      <p class="waiting-help">These tasks become ready automatically when their required predecessor tasks are completed or skipped.</p>
       <div id="waiting-list" class="task-list waiting-list"></div>
     </details>
   </main>
 
-  <dialog id="task-dialog">
-    <button class="dialog-close" aria-label="Close">×</button>
-    <div id="task-detail"></div>
-  </dialog>
+  <dialog id="task-dialog"><button class="dialog-close" aria-label="Close">×</button><div id="task-detail"></div></dialog>
 
   <dialog id="update-dialog">
     <button class="dialog-close update-close" aria-label="Close">×</button>
     <div class="update-detail">
-      <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v0.7.0</span></div>
+      <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v0.9.0</span></div>
       <h2>Update WeaveMap safely</h2>
-      <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace that file with the blank template from the WeaveMap repository.</p>
-      <ol>
-        <li>Make a temporary backup of <code>weavemap/state.js</code>.</li>
-        <li>Replace only <code>PROTOCOL.md</code>, <code>index.html</code>, <code>app.js</code>, and <code>style.css</code> from the latest WeaveMap repository.</li>
-        <li>Read the new protocol and migrate the existing <code>state.js</code> in place only if the state schema changed.</li>
-        <li>Open the observer and resolve any validation errors before deleting the temporary backup.</li>
-      </ol>
-      <p class="update-warning"><strong>Never overwrite <code>state.js</code> during a runtime update.</strong> It contains your tasks, status, notes, evidence, requirements, decisions, adoption baseline, and agent history.</p>
-      <h3>AI update prompt</h3>
-      <pre id="update-prompt" class="update-prompt"></pre>
-      <div class="update-actions">
-        <button id="copy-update-prompt" class="primary-button" type="button">Copy update prompt</button>
-        <a href="https://github.com/Srinevasan22/weavemap" target="_blank" rel="noreferrer">Open WeaveMap repository</a>
-        <span id="copy-status" class="muted" aria-live="polite"></span>
-      </div>
+      <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace it with the blank template.</p>
+      <ol><li>Back up <code>weavemap/state.js</code>.</li><li>Replace only <code>PROTOCOL.md</code>, <code>index.html</code>, <code>app.js</code>, and <code>style.css</code>.</li><li>Read the new protocol and migrate state only if the schema changed.</li><li>Validate before deleting the backup.</li></ol>
+      <p class="update-warning"><strong>Never overwrite <code>state.js</code> during a runtime update.</strong></p>
+      <h3>AI update prompt</h3><pre id="update-prompt" class="update-prompt"></pre>
+      <div class="update-actions"><button id="copy-update-prompt" class="primary-button" type="button">Copy update prompt</button><a href="https://github.com/Srinevasan22/weavemap" target="_blank" rel="noreferrer">Open WeaveMap repository</a><span id="copy-status" class="muted" aria-live="polite"></span></div>
     </div>
   </dialog>
 
