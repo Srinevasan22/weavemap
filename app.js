@@ -3,6 +3,7 @@
 
   const data = window.WEAVEMAP || {};
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+  const agents = Array.isArray(data.agents) ? data.agents : [];
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const resolvedStatuses = new Set(["done", "skipped"]);
 
@@ -150,6 +151,44 @@
     $("blocked-count").textContent = blocked.length;
   }
 
+  function normalizedAgents() {
+    const seen = new Set();
+    const result = [];
+
+    for (const entry of agents) {
+      const name = typeof entry === "string" ? entry : entry?.name;
+      const model = typeof entry === "object" && entry ? entry.model : null;
+      if (!name) continue;
+      const key = `${name}\u0000${model || ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({ name, model: model || null });
+    }
+
+    return result;
+  }
+
+  function renderAgents() {
+    const recorded = normalizedAgents();
+    const target = $("agent-list");
+    $("agent-count").textContent = recorded.length ? `${recorded.length} recorded` : "";
+
+    if (!recorded.length) {
+      target.innerHTML = '<div class="empty small">No agents recorded yet. An AI will add itself when it begins managing the project.</div>';
+      return;
+    }
+
+    target.replaceChildren(...recorded.map((entry) => {
+      const card = document.createElement("div");
+      card.className = "agent-chip";
+      card.innerHTML = `
+        <strong>${escapeHtml(entry.name)}</strong>
+        <span>${entry.model ? escapeHtml(entry.model) : "Model unknown"}</span>
+      `;
+      return card;
+    }));
+  }
+
   function renderExecutionMap() {
     const container = $("execution-map");
     if (!tasks.length) {
@@ -283,6 +322,7 @@
 
   renderHeader();
   renderStats();
+  renderAgents();
   renderExecutionMap();
   renderQueues();
 })();
