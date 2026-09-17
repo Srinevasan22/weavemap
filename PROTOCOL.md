@@ -1,6 +1,6 @@
 # WeaveMap protocol
 
-**Runtime version:** `0.5.0`  
+**Runtime version:** `0.6.0`  
 **Current state schema:** `4`
 
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
@@ -46,7 +46,7 @@ The observer displays both the WeaveMap runtime version and the project's state 
 
 ```js
 window.WEAVEMAP_RUNTIME
-// { version: "0.5.0", schemaVersion: 4 }
+// { version: "0.6.0", schemaVersion: 4 }
 ```
 
 When asked to update WeaveMap in a host project, follow this procedure:
@@ -229,6 +229,16 @@ notes: [
 ]
 ```
 
+### Human-written notes from the observer
+
+Runtime v0.6.0 lets the human write a note directly from a task's detail dialog. The observer appends the note to that task's `notes` array with a `Human:` prefix and persists the updated project state to `weavemap/state.js`.
+
+Treat any note beginning with `Human:` as explicit user context, not an agent inference. Read it before continuing the task. If a human note changes the intended work, update the task specification, requirements, decisions, priorities, or dependencies as needed so the durable state reflects the user's direction rather than silently ignoring the note.
+
+Do not delete a `Human:` note merely because it is inconvenient or conflicts with an earlier agent note. Resolve or incorporate it first. Once its instruction is fully reflected elsewhere in durable state, it may be shortened or removed if retaining it would only create stale duplication.
+
+The observer may ask the human to select the project's existing `weavemap/state.js` file the first time a note is saved. On browsers without direct local-file write support, the observer downloads an updated `state.js`; that downloaded file must replace the project's existing `weavemap/state.js` before the note becomes durable repo state.
+
 ## Dependency semantics
 
 `dependsOn` is a hard execution dependency.
@@ -356,7 +366,7 @@ The observer UI performs defensive validation, but agents should avoid writing i
 
 ## Human control
 
-The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, defer, accept, or redefine work. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
+The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, defer, accept, or redefine work. `Human:` task notes written in the observer are also explicit user context. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
 
 ## Using WeaveMap with common AI agents
 
