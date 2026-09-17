@@ -1,6 +1,14 @@
 (() => {
   "use strict";
 
+  const RUNTIME_VERSION = "0.5.0";
+  const CURRENT_SCHEMA_VERSION = 4;
+
+  window.WEAVEMAP_RUNTIME = Object.freeze({
+    version: RUNTIME_VERSION,
+    schemaVersion: CURRENT_SCHEMA_VERSION
+  });
+
   const data = window.WEAVEMAP || {};
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   const agents = Array.isArray(data.agents) ? data.agents : [];
@@ -57,6 +65,15 @@
     const errors = [];
     const visiting = new Set();
     const visited = new Set();
+    const stateSchemaVersion = Number(data.schemaVersion || 0);
+
+    if (stateSchemaVersion !== CURRENT_SCHEMA_VERSION) {
+      if (stateSchemaVersion < CURRENT_SCHEMA_VERSION) {
+        errors.push(`State schema v${stateSchemaVersion || "unknown"} is older than runtime v${RUNTIME_VERSION}, which expects schema v${CURRENT_SCHEMA_VERSION}. Run the safe update migration.`);
+      } else {
+        errors.push(`State schema v${stateSchemaVersion} is newer than runtime v${RUNTIME_VERSION}, which supports schema v${CURRENT_SCHEMA_VERSION}. Update the WeaveMap runtime before editing state.`);
+      }
+    }
 
     for (const id of duplicateIds(tasks)) errors.push(`Duplicate task id ${id}.`);
     for (const id of duplicateIds(requirements)) errors.push(`Duplicate requirement id ${id}.`);
@@ -226,7 +243,10 @@
     $("project-name").textContent = project.name || "Project";
     $("project-summary").textContent = project.summary || "";
     $("project-phase").textContent = project.phase || "";
-    document.title = `${project.name || "Project"} · WeaveMap`;
+    $("runtime-version").textContent = `v${RUNTIME_VERSION}`;
+    $("schema-version").textContent = `state schema v${data.schemaVersion ?? "?"}`;
+    $("update-runtime-version").textContent = `v${RUNTIME_VERSION}`;
+    document.title = `${project.name || "Project"} · WeaveMap v${RUNTIME_VERSION}`;
 
     if (!data.initialized) $("onboarding").classList.remove("hidden");
 
@@ -474,11 +494,80 @@
     $("task-dialog").showModal();
   }
 
-  $("task-dialog").querySelector(".dialog-close").addEventListener("click", () => $("task-dialog").close());
-  $("task-dialog").addEventListener("click", (event) => {
-    if (event.target === $("task-dialog")) $("task-dialog").close();
-  });
+  function safeUpdatePrompt() {
+    return `Update WeaveMap in this project to the latest version from https://github.com/Srinevasan22/weavemap.
 
+This is a runtime update. Preserve all project-management data.
+
+1. Read the existing weavemap/state.js before changing anything.
+2. Make a temporary backup of weavemap/state.js.
+3. Replace ONLY these runtime files from the latest WeaveMap repository:
+   - weavemap/PROTOCOL.md
+   - weavemap/index.html
+   - weavemap/app.js
+   - weavemap/style.css
+4. NEVER replace weavemap/state.js with the source repository template.
+5. Read the new weavemap/PROTOCOL.md completely.
+6. If the new runtime expects a newer state schema, migrate the EXISTING state.js in place. Preserve all project name/summary/phase, adoption findings and evidence, requirements, decisions, tasks, IDs, statuses, dependencies, acceptance criteria, notes, agents, and other project knowledge unless the new protocol explicitly requires a compatible structural migration.
+7. Validate the migrated state in the WeaveMap observer and resolve all validation errors.
+8. Only after validation succeeds, remove the temporary state backup.
+9. Do not change application code as part of the WeaveMap update.
+
+Report the old runtime/schema version, the new runtime/schema version, whether a state migration was required, and whether validation passed.`;
+  }
+
+  function copyText(value) {
+    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
+
+    return new Promise((resolve, reject) => {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (copied) resolve();
+        else reject(new Error("Copy command was not accepted."));
+      } catch (error) {
+        textarea.remove();
+        reject(error);
+      }
+    });
+  }
+
+  function setupDialogs() {
+    const taskDialog = $("task-dialog");
+    taskDialog.querySelector(".dialog-close").addEventListener("click", () => taskDialog.close());
+    taskDialog.addEventListener("click", (event) => {
+      if (event.target === taskDialog) taskDialog.close();
+    });
+
+    const updateDialog = $("update-dialog");
+    const prompt = safeUpdatePrompt();
+    $("update-prompt").textContent = prompt;
+
+    $("update-button").addEventListener("click", () => updateDialog.showModal());
+    updateDialog.querySelector(".update-close").addEventListener("click", () => updateDialog.close());
+    updateDialog.addEventListener("click", (event) => {
+      if (event.target === updateDialog) updateDialog.close();
+    });
+
+    $("copy-update-prompt").addEventListener("click", async () => {
+      const status = $("copy-status");
+      try {
+        await copyText(prompt);
+        status.textContent = "Copied.";
+      } catch (error) {
+        status.textContent = "Copy failed — select the prompt manually.";
+      }
+    });
+  }
+
+  setupDialogs();
   renderHeader();
   renderStats();
   renderAdoption();
