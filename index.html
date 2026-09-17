@@ -19,16 +19,41 @@
 
     <section id="onboarding" class="onboarding hidden">
       <strong>WeaveMap is ready.</strong>
-      <span>Ask your AI to read <code>weavemap/PROTOCOL.md</code> and use WeaveMap to manage this project as it works. The protocol is agent-agnostic; no model-specific integration is required.</span>
+      <span>Ask your AI to read <code>weavemap/PROTOCOL.md</code> and use WeaveMap to manage this project as it works. The AI will detect whether this is a new or existing project and initialize it accordingly.</span>
     </section>
 
     <section id="validation" class="validation hidden"></section>
 
     <section class="stats" aria-label="Project status">
-      <article><span>Progress</span><strong id="progress">0%</strong></article>
+      <article><span id="progress-label">Progress</span><strong id="progress">0%</strong></article>
       <article><span>Current wave</span><strong id="current-wave">—</strong></article>
       <article><span>Ready</span><strong id="ready-count">0</strong></article>
       <article><span>Blocked</span><strong id="blocked-count">0</strong></article>
+    </section>
+
+    <section id="adoption-panel" class="panel adoption-panel hidden">
+      <div class="section-heading">
+        <div>
+          <h2>Existing project baseline</h2>
+          <p>What WeaveMap found when it joined this project midstream. Execution progress starts from this baseline.</p>
+        </div>
+        <span class="mode-badge">Adopted</span>
+      </div>
+      <p id="adoption-summary" class="baseline-summary"></p>
+      <div class="baseline-grid">
+        <article class="baseline-card">
+          <h3>Established</h3>
+          <ul id="adoption-established"></ul>
+        </article>
+        <article class="baseline-card">
+          <h3>Gaps</h3>
+          <ul id="adoption-gaps"></ul>
+        </article>
+        <article class="baseline-card">
+          <h3>Uncertainties</h3>
+          <ul id="adoption-uncertainties"></ul>
+        </article>
+      </div>
     </section>
 
     <section class="panel agents-panel">
