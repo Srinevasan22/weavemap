@@ -46,19 +46,69 @@ Rules:
 - If the same agent later uses a different known model, add a separate entry.
 - Keep this lightweight: do not add timestamps, token counts, or per-session logs unless the schema is explicitly extended later.
 
+## Initialization mode
+
+WeaveMap supports both brand-new projects and projects that already contain substantial work.
+
+During first initialization, determine the entry mode from the repository itself:
+
+- Set `project.entryMode` to `"new"` when the host project is effectively starting from scratch.
+- Set `project.entryMode` to `"adopted"` when meaningful application code, infrastructure, tests, documentation, deployment configuration, or other project work already exists.
+
+Do not ask the user which mode to use when the repository makes the answer clear.
+
+## Adopting an existing project
+
+When `project.entryMode` is `"adopted"`, treat initialization as a baseline analysis rather than a greenfield plan.
+
+Inspect the current repository carefully, including relevant source code, configuration, documentation, tests, CI/deployment files, schemas, TODOs, and version history when available and useful. Reconstruct the present state of the project, not an imagined history of how it got there.
+
+Set `adoption` to:
+
+```js
+adoption: {
+  baselineSummary: "Concise description of the project state when WeaveMap joined.",
+  established: [
+    "Capabilities or foundations clearly evidenced in the repository"
+  ],
+  gaps: [
+    "Important missing, incomplete, broken, or unfinished areas"
+  ],
+  uncertainties: [
+    "Things the repository does not establish with enough confidence"
+  ]
+}
+```
+
+Adoption rules:
+
+- Only put something in `established` when repository evidence or an explicit user statement supports it.
+- Put ambiguous or conflicting findings in `uncertainties`; do not guess.
+- Do not invent historical tasks and mark them `done` merely to recreate a fictional project history.
+- Existing implemented capabilities belong in the adoption baseline, not as fake completed tasks.
+- Create tasks for remaining work, clearly incomplete work, fixes, migrations, cleanup, missing tests, current roadmap items, and other actionable work that exists from the adoption point forward.
+- If the repository clearly shows a piece of work already in progress, it may be represented as an `active` task with a note that it predates WeaveMap adoption.
+- If future work relies on a capability already present at adoption, treat that capability as an established baseline rather than creating an artificial completed dependency task.
+- Progress shown by WeaveMap after adoption reflects the work tracked by WeaveMap from the adoption baseline forward, not the percentage of the project's entire historical lifetime.
+- Preserve the user's stated roadmap or current objective when it is available, but verify implementation state against the repository.
+
+The human UI will display the adoption baseline separately from the execution map.
+
 ## First initialization
 
 If `weavemap/state.js` has `initialized: false`:
 
 1. Inspect the host project and the user's stated goal.
-2. Set the project name, summary, and current high-level phase.
-3. Record your agent/model identity in `agents`.
-4. Define only the workstreams the project actually needs. Examples may include Product, Architecture, Design, Frontend, Backend, Data, Infrastructure, QA, Security, Release, Mobile, AI, or Documentation. Do not create empty boilerplate workstreams.
-5. Add explicit requirements.
-6. Add known architectural/product decisions only when they are actually decided.
-7. Decompose the work into tasks with meaningful dependency relationships.
-8. Validate that dependencies are acyclic and point to real task IDs.
-9. Set `initialized: true` before beginning implementation.
+2. Determine and set `project.entryMode` to `"new"` or `"adopted"`.
+3. Set the project name, summary, and current high-level phase.
+4. Record your agent/model identity in `agents`.
+5. If the project is adopted, create the `adoption` baseline before planning future work. If it is new, leave `adoption` as `null`.
+6. Define only the workstreams the project actually needs. Examples may include Product, Architecture, Design, Frontend, Backend, Data, Infrastructure, QA, Security, Release, Mobile, AI, or Documentation. Do not create empty boilerplate workstreams.
+7. Add explicit requirements supported by the user's goal, project documentation, or current implementation.
+8. Add known architectural/product decisions only when they are actually decided.
+9. Decompose actionable remaining work into tasks with meaningful dependency relationships.
+10. Validate that dependencies are acyclic and point to real task IDs.
+11. Set `initialized: true` before beginning implementation.
 
 ## Task schema
 
@@ -92,11 +142,10 @@ Priority uses `P1` (highest) through `P5` (lowest).
 Before starting development work:
 
 1. Read `weavemap/state.js`.
-2. Ensure your agent/model entry exists in `agents`.
-3. Continue an `active` task when appropriate.
-4. Otherwise select a `todo` task whose dependencies are all `done` or `skipped`.
-5. Prefer, in order: higher priority, tasks that unblock more downstream work, then lower effort.
-6. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
+2. Continue an `active` task when appropriate.
+3. Otherwise select a `todo` task whose dependencies are all `done` or `skipped`.
+4. Prefer, in order: higher priority, tasks that unblock more downstream work, then lower effort.
+5. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
 
 During work:
 
