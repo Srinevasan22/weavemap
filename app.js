@@ -363,10 +363,10 @@
     const currentWave = currentCandidates.length ? waves.get(currentCandidates[0].id) : null;
 
     if ($("progress-label")) $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
-    if ($("progress")) $("progress").textContent = data.project?.entryMode === "adopted" ? "0%" : `${progress}%`;
+    if ($("progress")) $("progress").textContent = `${progress}%`;
     if ($("current-wave")) $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
-    if ($("ready-count")) $("ready-count").textContent = data.project?.entryMode === "adopted" ? 4 : ready.length;
-    if ($("waiting-count")) $("waiting-count").textContent = data.project?.entryMode === "adopted" ? 3 : waiting.length;
+    if ($("ready-count")) $("ready-count").textContent = ready.length;
+    if ($("waiting-count")) $("waiting-count").textContent = waiting.length;
     if ($("needs-human-count")) $("needs-human-count").textContent = needsHuman.length;
     if ($("blocked-count")) $("blocked-count").textContent = blocked.length;
     if ($("waiting-list-count")) $("waiting-list-count").textContent = `${waiting.length}`;
@@ -721,17 +721,6 @@
   function renderList(targetId, list, emptyMessage, recommendedId = null) {
     const target = $(targetId);
     if (!target) return;
-    if (document.querySelector(".column-panel") && (targetId === "ready-list" || targetId === "needs-human-list" || targetId === "blocked-list")) {
-      // In The Weave view, wire click handlers for panel task items
-      target.querySelectorAll(".panel-task-item").forEach((item) => {
-        const taskId = item.querySelector("strong")?.textContent?.trim();
-        if (taskId && !item.dataset.bound) {
-          item.dataset.bound = "true";
-          item.addEventListener("click", () => openTask(taskId));
-        }
-      });
-      return;
-    }
     if (!list.length) {
       target.innerHTML = `<div class="empty small">${escapeHtml(emptyMessage)}</div>`;
       return;
@@ -765,7 +754,7 @@
     const waiting = tasks.filter(isWaiting).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
     const needsHuman = tasks.filter(isNeedsHuman).sort((a, b) => priorityValue(a.priority) - priorityValue(b.priority));
 
-    if ($("next-label") && !document.querySelector(".column-panel")) {
+    if ($("next-label")) {
       $("next-label").textContent = recommended ? `Next: ${recommended.id}` : "";
     }
     renderList("ready-list", ranked, "Nothing is currently ready.", recommended?.id);

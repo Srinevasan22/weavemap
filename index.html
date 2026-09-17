@@ -7,183 +7,8 @@
   <link rel="stylesheet" href="style.css">
   <style>
     /* ==========================================================================
-       The Weave — Canonical High-Fidelity Presentation Layer (Matching Image 1)
+       The Weave — Canonical Canvas, Threads & Cards
        ========================================================================== */
-    :root {
-      --weave-bg: #f8fafc;
-      --weave-border: #e2e8f0;
-      --weave-text-main: #0f172a;
-      --weave-text-muted: #64748b;
-      --color-qa: #2563eb;
-      --color-cv: #8b5cf6;
-      --color-backend: #10b981;
-      --color-mobile: #f97316;
-      --color-release: #ef4444;
-    }
-
-    body {
-      background: var(--weave-bg);
-      color: var(--weave-text-main);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-
-    .shell {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 24px 32px 48px;
-    }
-
-    /* --- Topbar & Header --- */
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 24px;
-    }
-    .brand-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 8px;
-    }
-    .brand-logo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 800;
-      font-size: 15px;
-      letter-spacing: 0.05em;
-      color: #1e3a8a;
-    }
-    .version-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      border-radius: 999px;
-      padding: 3px 10px;
-      font-size: 11px;
-      color: #475467;
-      cursor: pointer;
-    }
-    .version-badge strong { color: #0f172a; }
-    h1#project-name {
-      font-size: 30px;
-      font-weight: 800;
-      margin: 0 0 6px;
-      color: #0f172a;
-      letter-spacing: -0.02em;
-    }
-    #project-summary {
-      color: var(--weave-text-muted);
-      font-size: 13.5px;
-      line-height: 1.45;
-      margin: 0;
-      max-width: 900px;
-    }
-    .header-right-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .phase-selector {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 999px;
-      padding: 6px 14px;
-      font-size: 12.5px;
-      font-weight: 600;
-      color: #334155;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-    }
-    .theme-controls {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .icon-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 1px solid #e2e8f0;
-      background: #ffffff;
-      color: #64748b;
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-      transition: all 0.15s ease;
-    }
-    .icon-btn:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
-
-    /* --- Stats Row (5 Metric Cards) --- */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 14px;
-      margin-bottom: 24px;
-    }
-    .stats article.stat-card {
-      border-radius: 12px;
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-      border: 1px solid #e2e8f0;
-    }
-    .stats article.stat-card.progress-card {
-      background: #ffffff !important;
-      border-color: #e2e8f0 !important;
-    }
-    .stats article.stat-card.ready-card {
-      background: #f0fdf4 !important;
-      border-color: #bbf7d0 !important;
-    }
-    .stats article.stat-card.ready-card .stat-icon-wrap {
-      background: #dcfce7 !important;
-      color: #16a34a !important;
-    }
-    .stats article.stat-card.waiting-card {
-      background: #fffbeb !important;
-      border-color: #fde68a !important;
-    }
-    .stats article.stat-card.waiting-card .stat-icon-wrap {
-      background: #fef3c7 !important;
-      color: #d97706 !important;
-    }
-    .stats article.stat-card.human-card {
-      background: #eff6ff !important;
-      border-color: #bfdbfe !important;
-    }
-    .stats article.stat-card.human-card .stat-icon-wrap {
-      background: #dbeafe !important;
-      color: #2563eb !important;
-    }
-    .stats article.stat-card.blocked-card {
-      background: #fef2f2 !important;
-      border-color: #fecaca !important;
-    }
-    .stats article.stat-card.blocked-card .stat-icon-wrap {
-      background: #fee2e2 !important;
-      color: #dc2626 !important;
-    }
-    .stat-body { display: flex; flex-direction: column; gap: 2px; }
-    .stat-body span { font-size: 11.5px; font-weight: 600; color: #64748b; }
-    .stat-body strong { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.1; }
-
-    /* Circular SVG progress ring */
-    .progress-ring { transform: rotate(-90deg); }
-    .ring-bg { stroke: #e2e8f0; }
-    .ring-fill { stroke: #38bdf8; transition: stroke-dashoffset 0.4s ease; }
-
-    /* --- The Weave Main Card Panel --- */
     .weave-panel {
       background: #ffffff;
       border: 1px solid #e2e8f0;
@@ -580,286 +405,11 @@
     .weave-zoom-pill button:hover { background: #f1f5f9; color: #0f172a; }
     .weave-zoom-pill button + button { border-left: 1px solid #e2e8f0; }
 
-    /* --- Bottom 3 Panels (Ready Frontier, Needs Human, Blockers) --- */
-    .work-columns {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-    .column-panel {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 18px 20px;
-      min-height: 200px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    }
-    .panel-heading-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 14px;
-    }
-    .heading-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .heading-group h2 {
-      font-size: 15px;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-    .heading-group p {
-      font-size: 11px;
-      color: #64748b;
-      margin: 2px 0 0;
-    }
-    .count-pill {
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 999px;
-    }
-    .pill-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
-    .pill-purple { background: #faf5ff; color: #7c3aed; border: 1px solid #e9d5ff; }
-    .pill-red { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-
-    /* Panel task lists */
-    .panel-task-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-      background: #f8fafc;
-      margin-bottom: 6px;
-      cursor: pointer;
-      transition: all 0.12s ease;
-    }
-    .panel-task-item:hover { background: #ffffff; border-color: #cbd5e1; transform: translateY(-1px); }
-    .panel-task-item strong { font-size: 11px; color: #334155; font-weight: 700; min-width: 48px; }
-    .panel-task-item span { font-size: 11.5px; color: #0f172a; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* Empty state illustration */
-    .empty-state-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 28px 16px;
-      text-align: center;
-      color: #64748b;
-    }
-    .empty-icon-circle {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: #f1f5f9;
-      display: grid;
-      place-items: center;
-      color: #94a3b8;
-      margin-bottom: 10px;
-    }
-    .empty-state-wrap strong { font-size: 13px; color: #334155; margin-bottom: 3px; font-weight: 700; }
-    .empty-state-wrap p { font-size: 11px; color: #64748b; margin: 0; max-width: 260px; line-height: 1.4; }
-
     /* Compact toggle */
     .weave-canvas-inner.compact { --col-depth: 215px; }
     .weave-canvas-inner.compact .weave-row { min-height: 78px; }
     .weave-canvas-inner.compact .weave-card { padding: 7px 10px; max-width: 200px; }
     .weave-canvas-inner.compact .card-title { font-size: 10.5px; -webkit-line-clamp: 1; }
-    /* Existing Project Baseline & Middle Panels */
-    .panel {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 18px 20px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    }
-    .card-established {
-      border-top: 3px solid #10b981 !important;
-    }
-    .card-established h3 {
-      color: #0f172a;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin: 0 0 10px;
-    }
-    .card-gaps {
-      border-top: 3px solid #f59e0b !important;
-    }
-    .card-gaps h3 {
-      color: #0f172a;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin: 0 0 10px;
-    }
-    .card-uncertainties {
-      border-top: 3px solid #ef4444 !important;
-    }
-    .card-uncertainties h3 {
-      color: #0f172a;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin: 0 0 10px;
-    }
-    .mode-badge {
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      color: #475467;
-      letter-spacing: 0.05em;
-    }
-    .next-label {
-      font-size: 11px;
-      font-weight: 800;
-      padding: 3px 9px;
-      border-radius: 999px;
-      background: #eff6ff;
-      color: #2563eb;
-      border: 1px solid #bfdbfe;
-      text-transform: uppercase;
-    }
-    .coverage-summary {
-      color: #2563eb;
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .requirement-row {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 12px 14px;
-      background: #ffffff;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .requirement-row.uncovered {
-      border-color: #fde68a !important;
-      background: #fffbeb !important;
-    }
-    .coverage-warning {
-      background: #fef3c7;
-      color: #b45309;
-      border: 1px solid #fde68a;
-      border-radius: 4px;
-      padding: 3px 8px;
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-    .waiting-panel {
-      margin-top: 16px;
-    }
-    .waiting-panel summary {
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 4px 0;
-    }
-    .waiting-summary-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #0f172a;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .waiting-count {
-      font-size: 11px;
-      font-weight: 800;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #fef3c7;
-      color: #b45309;
-      border: 1px solid #fde68a;
-    }
-    .requirements-panel summary {
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      font-weight: 750;
-      font-size: 15px;
-      color: #0f172a;
-    }
-    .baseline-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 12px;
-    }
-    .baseline-card {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 14px 16px;
-      background: #f8fafc;
-    }
-    .baseline-card ul {
-      margin: 0;
-      padding-left: 18px;
-      color: #475467;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .baseline-card li + li {
-      margin-top: 10px;
-    }
-    .baseline-meta {
-      display: block;
-      margin-top: 3px;
-      color: #94a3b8;
-      font-size: 10.5px;
-      line-height: 1.35;
-    }
-    .agent-chip {
-      min-width: 170px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      display: grid;
-      gap: 3px;
-      background: #f8fafc;
-    }
-    .agent-chip strong {
-      font-size: 13px;
-      color: #0f172a;
-    }
-    .agent-chip span {
-      color: #64748b;
-      font-size: 11px;
-    }
-
-    @media (max-width: 1024px) {
-      .stats { grid-template-columns: repeat(3, 1fr); }
-      .work-columns { grid-template-columns: 1fr; }
-      .baseline-grid { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 768px) {
-      .stats { grid-template-columns: 1fr 1fr; }
-      .shell { padding: 16px; }
-    }
   </style>
 </head>
 <body>
@@ -868,13 +418,7 @@
     <header class="topbar">
       <div>
         <div class="brand-row">
-          <div class="brand-logo">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><circle cx="5" cy="18" r="2.5"/>
-              <path d="M5 8.5v7"/><path d="M19 8.5v7"/><path d="M7.5 6h9"/><path d="M7.5 18h9"/><path d="M7 7.5l10 9"/>
-            </svg>
-            <span>WEAVEMAP</span>
-          </div>
+          <span class="brand">WeaveMap</span>
           <button id="update-button" class="version-badge" type="button" title="View safe update instructions">
             <strong id="runtime-version">v1.0.0</strong>
             <span id="schema-version">state schema v4</span>
@@ -883,87 +427,27 @@
         <h1 id="project-name">AimSight</h1>
         <p id="project-summary">Unified monorepo for ISSF 10m Air Pistol target tracking, analysis, and scoring, comprising a Flutter cross-platform mobile client, Node/Express backend API, and high-precision OpenCV edge scanner engine.</p>
       </div>
-
-      <div class="header-right-controls">
-        <div class="phase-selector">
-          <span id="project-phase">Scanner v2 & Pre-Release Hardening</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </div>
-        <div class="theme-controls">
-          <button type="button" class="icon-btn" title="Light mode" aria-label="Light mode">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-          </button>
-          <button type="button" class="icon-btn" title="Dark mode" aria-label="Dark mode">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-          </button>
-          <button type="button" class="icon-btn" title="History" aria-label="History">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </button>
-        </div>
-      </div>
+      <div id="project-phase" class="phase">Scanner v2 & Pre-Release Hardening</div>
     </header>
 
     <section id="onboarding" class="onboarding hidden"></section>
     <section id="validation" class="validation hidden"></section>
 
-    <!-- 5 Metric Cards (Matching Image 1) -->
+    <!-- 6 Metric Cards (Matching style.css) -->
     <section class="stats" aria-label="Project status">
-      <article class="stat-card progress-card">
-        <div class="stat-icon-wrap">
-          <svg class="progress-ring" width="38" height="38" viewBox="0 0 38 38">
-            <circle class="ring-bg" cx="19" cy="19" r="15" fill="none" stroke="#e2e8f0" stroke-width="3"/>
-            <circle id="progress-circle" class="ring-fill" cx="19" cy="19" r="15" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="stat-body">
-          <span id="progress-label">Tracked progress</span>
-          <strong id="progress">0%</strong>
-        </div>
+      <article><span id="progress-label">Tracked progress</span><strong id="progress">0%</strong></article>
+      <article><span>Current wave</span><strong id="current-wave">—</strong></article>
+      <article><span>Ready</span><strong id="ready-count">0</strong></article>
+      <article>
+        <span class="stat-label">Waiting <button class="info-tooltip" type="button" aria-label="Waiting means tasks that cannot start yet because dependencies are unfinished. This is normal sequencing, not a blocker." data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker.">?</button></span>
+        <strong id="waiting-count">0</strong>
       </article>
-
-      <article class="stat-card ready-card">
-        <div class="stat-icon-wrap">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-        </div>
-        <div class="stat-body">
-          <span>Ready</span>
-          <strong id="ready-count">4</strong>
-        </div>
+      <article>
+        <span class="stat-label">Needs human <button class="info-tooltip" type="button" aria-label="Needs human means a task has reached an explicit human approval gate." data-tooltip="Tasks at an explicit human approval gate. AI must not approve these gates on its own.">?</button></span>
+        <strong id="needs-human-count">0</strong>
       </article>
-
-      <article class="stat-card waiting-card">
-        <div class="stat-icon-wrap">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-        </div>
-        <div class="stat-body">
-          <span class="stat-label">Waiting <button class="info-tooltip" type="button" data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem.">?</button></span>
-          <strong id="waiting-count">3</strong>
-        </div>
-      </article>
-
-      <article class="stat-card human-card">
-        <div class="stat-icon-wrap">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
-        <div class="stat-body">
-          <span class="stat-label">Needs human <button class="info-tooltip" type="button" data-tooltip="Tasks at an explicit human approval gate.">?</button></span>
-          <strong id="needs-human-count">0</strong>
-        </div>
-      </article>
-
-      <article class="stat-card blocked-card">
-        <div class="stat-icon-wrap">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <div class="stat-body">
-          <span class="stat-label">Blocked <button class="info-tooltip" type="button" data-tooltip="Explicit obstacles preventing work independent of normal dependency sequencing.">?</button></span>
-          <strong id="blocked-count">0</strong>
-        </div>
-      </article>
+      <article><span>Blocked</span><strong id="blocked-count">0</strong></article>
     </section>
- 
-    <!-- Helper for app.js wave computation -->
-    <span id="current-wave" style="display:none;"></span>
 
     <!-- 1. Existing project baseline -->
     <section id="adoption-panel" class="panel adoption-panel hidden">
@@ -976,15 +460,15 @@
       </div>
       <p id="adoption-summary" class="baseline-summary"></p>
       <div class="baseline-grid">
-        <article class="baseline-card card-established">
+        <article class="baseline-card">
           <h3>Established</h3>
           <ul id="adoption-established"></ul>
         </article>
-        <article class="baseline-card card-gaps">
+        <article class="baseline-card">
           <h3>Gaps</h3>
           <ul id="adoption-gaps"></ul>
         </article>
-        <article class="baseline-card card-uncertainties">
+        <article class="baseline-card">
           <h3>Uncertainties</h3>
           <ul id="adoption-uncertainties"></ul>
         </article>
@@ -1108,80 +592,34 @@
          ======================================================================= -->
     <section class="work-columns">
       <!-- Ready frontier -->
-      <article class="column-panel">
-        <div class="panel-heading-row">
-          <div class="heading-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#2563eb"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-            <div>
-              <h2>Ready frontier</h2>
-              <p>Tasks ready to start now.</p>
-            </div>
-          </div>
-          <span id="next-label" class="count-pill pill-blue">4 tasks</span>
+      <article class="panel">
+        <div class="section-heading compact">
+          <h2>Ready frontier</h2>
+          <span id="next-label" class="next-label"></span>
         </div>
-        <div id="ready-list">
-          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-004]')?.click()">
-            <strong>T-004</strong>
-            <span>Verify end-to-end target re-analysis credit deduction flow</span>
-          </div>
-          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-005]')?.click()">
-            <strong>T-005</strong>
-            <span>Test BLE heart rate auto-reconnect under background power...</span>
-          </div>
-          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-007]')?.click()">
-            <strong>T-007</strong>
-            <span>Integrate Google Play Games Services for achievement tracking</span>
-          </div>
-          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-008]')?.click()">
-            <strong>T-008</strong>
-            <span>Prepare App Store release candidate build and validation</span>
-          </div>
-        </div>
+        <div id="ready-list" class="task-list"></div>
       </article>
 
       <!-- Needs human -->
-      <article class="column-panel">
-        <div class="panel-heading-row">
-          <div class="heading-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <div>
-              <h2>Needs human</h2>
-              <p>Explicit approval gates waiting for you.</p>
-            </div>
-          </div>
-          <span class="count-pill pill-purple">0 tasks</span>
-        </div>
-        <div id="needs-human-list">
-          <div class="empty-state-wrap">
-            <div class="empty-icon-circle">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </div>
-            <strong>Nothing currently needs human approval.</strong>
+      <article class="panel needs-human-panel">
+        <div class="section-heading compact">
+          <div>
+            <h2>Needs human</h2>
+            <p>Explicit approval gates waiting for you.</p>
           </div>
         </div>
+        <div id="needs-human-list" class="task-list"></div>
       </article>
 
       <!-- Blockers -->
-      <article class="column-panel">
-        <div class="panel-heading-row">
-          <div class="heading-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <div>
-              <h2>Blockers</h2>
-              <p>Only real obstacles. Dependency waiting is separate.</p>
-            </div>
-          </div>
-          <span class="count-pill pill-red">0 tasks</span>
-        </div>
-        <div id="blocked-list">
-          <div class="empty-state-wrap">
-            <div class="empty-icon-circle">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </div>
-            <strong>No true blockers.</strong>
-            <p>Tasks waiting on dependencies are listed separately.</p>
+      <article class="panel">
+        <div class="section-heading compact">
+          <div>
+            <h2>Blockers</h2>
+            <p>Only real obstacles. Dependency waiting is separate.</p>
           </div>
         </div>
+        <div id="blocked-list" class="task-list"></div>
       </article>
     </section>
  
