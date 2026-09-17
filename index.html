@@ -13,7 +13,7 @@
         <div class="brand-row">
           <div class="brand">WeaveMap</div>
           <button id="update-button" class="version-badge" type="button" title="View safe update instructions">
-            <strong id="runtime-version">v0.9.0</strong>
+            <strong id="runtime-version">v1.0.0</strong>
             <span id="schema-version">state schema</span>
           </button>
         </div>
@@ -62,6 +62,23 @@
       <div id="agent-list" class="agent-list"></div>
     </section>
 
+    <details id="requirements-panel" class="panel requirements-panel">
+      <summary>
+        <span>Requirement coverage</span>
+        <span id="requirement-coverage-summary" class="coverage-summary"></span>
+      </summary>
+      <p class="panel-help">Active requirements should be linked to the task or tasks that deliver them. Uncovered requirements are a planning signal, not automatically a validation error.</p>
+      <div id="requirement-list" class="requirement-list"></div>
+    </details>
+
+    <section id="conflict-panel" class="panel conflict-panel hidden">
+      <div class="section-heading compact">
+        <div><h2>Coordination warnings</h2><p>Ready or active tasks have overlapping expected edit scopes. This is advisory, not a file lock.</p></div>
+        <span id="conflict-count" class="warning-count"></span>
+      </div>
+      <div id="conflict-list" class="conflict-list"></div>
+    </section>
+
     <section class="panel map-panel">
       <div class="section-heading">
         <div><h2>Execution map</h2><p>Horizontal position is dependency depth, not time.</p></div>
@@ -69,7 +86,11 @@
           <span><i class="dot done"></i>Done</span><span><i class="dot active"></i>Active</span><span><i class="dot ready"></i>Ready</span><span><i class="dot waiting"></i>Waiting</span><span><i class="dot approval"></i>Needs human</span><span><i class="dot blocked"></i>Blocked</span>
         </div>
       </div>
+
       <div class="map-controls" aria-label="Execution map filters">
+        <label class="search-control">Search tasks
+          <span class="search-input-row"><input id="task-search" type="search" placeholder="ID, title, spec, note, path…" autocomplete="off"><button id="clear-search" type="button" class="clear-search" aria-label="Clear task search">×</button></span>
+        </label>
         <label>Workstream <select id="filter-workstream"></select></label>
         <label>State
           <select id="filter-state">
@@ -85,6 +106,12 @@
         <label class="check-control"><input id="hide-done" type="checkbox"> Hide done</label>
         <button id="density-toggle" class="secondary-button" type="button">Compact cards</button>
       </div>
+
+      <div id="search-results-panel" class="search-results-panel hidden">
+        <div class="section-heading compact"><h3>Search results</h3><span id="search-result-count" class="next-label"></span></div>
+        <div id="search-results" class="task-list"></div>
+      </div>
+
       <div id="execution-map" class="execution-map"></div>
     </section>
 
@@ -109,7 +136,7 @@
   <dialog id="update-dialog">
     <button class="dialog-close update-close" aria-label="Close">×</button>
     <div class="update-detail">
-      <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v0.9.0</span></div>
+      <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v1.0.0</span></div>
       <h2>Update WeaveMap safely</h2>
       <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace it with the blank template.</p>
       <ol><li>Back up <code>weavemap/state.js</code>.</li><li>Replace only <code>PROTOCOL.md</code>, <code>index.html</code>, <code>app.js</code>, and <code>style.css</code>.</li><li>Read the new protocol and migrate state only if the schema changed.</li><li>Validate before deleting the backup.</li></ol>
