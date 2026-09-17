@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const RUNTIME_VERSION = "0.6.0";
+  const RUNTIME_VERSION = "0.7.0";
   const CURRENT_SCHEMA_VERSION = 4;
 
   window.WEAVEMAP_RUNTIME = Object.freeze({
@@ -41,6 +41,18 @@
       const dependency = byId.get(id);
       return !dependency || !resolvedStatuses.has(dependency.status);
     });
+  }
+
+  function isReady(task) {
+    return task.status === "todo" && unmetDependencies(task).length === 0;
+  }
+
+  function isWaiting(task) {
+    return task.status === "todo" && unmetDependencies(task).length > 0;
+  }
+
+  function isBlocked(task) {
+    return task.status === "blocked";
   }
 
   function duplicateIds(items) {
@@ -201,15 +213,6 @@
   const stateErrors = validateState();
   const waves = calculateWaves();
 
-  function isReady(task) {
-    return task.status === "todo" && unmetDependencies(task).length === 0;
-  }
-
-  function isBlocked(task) {
-    if (task.status === "blocked") return true;
-    return task.status === "todo" && unmetDependencies(task).length > 0;
-  }
-
   function unblockCount(taskId) {
     return tasks.filter((task) => dependencies(task).includes(taskId)).length;
   }
@@ -234,8 +237,9 @@
   function taskState(task) {
     if (task.status === "done" || task.status === "skipped") return "done";
     if (task.status === "active") return "active";
+    if (task.status === "blocked") return "blocked";
     if (isReady(task)) return "ready";
-    if (isBlocked(task)) return "blocked";
+    if (isWaiting(task)) return "waiting";
     return "todo";
   }
 
@@ -261,6 +265,7 @@
     const done = tasks.filter((task) => resolvedStatuses.has(task.status)).length;
     const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
     const ready = tasks.filter(isReady);
+    const waiting = tasks.filter(isWaiting);
     const blocked = tasks.filter(isBlocked);
     const activeOrReady = rankTasks(tasks.filter((task) => task.status === "active" || isReady(task)));
     const currentWave = activeOrReady.length ? waves.get(activeOrReady[0].id) : null;
@@ -269,7 +274,9 @@
     $("progress").textContent = `${progress}%`;
     $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
     $("ready-count").textContent = ready.length;
+    $("waiting-count").textContent = waiting.length;
     $("blocked-count").textContent = blocked.length;
+    $("waiting-list-count").textContent = `${waiting.length}`;
   }
 
   function normalizeFinding(value, kind) {
@@ -298,7 +305,6 @@
     for (const value of values) {
       const item = document.createElement("li");
       item.className = "baseline-item";
-
       const text = document.createElement("span");
       text.className = "baseline-text";
       text.textContent = value.text;
@@ -315,14 +321,12 @@
         meta.textContent = metadata.join("  •  ");
         item.appendChild(meta);
       }
-
       target.appendChild(item);
     }
   }
 
   function renderAdoption() {
     if (data.project?.entryMode !== "adopted") return;
-
     const adoption = data.adoption || {};
     $("adoption-panel").classList.remove("hidden");
     $("adoption-summary").textContent = adoption.baselineSummary || "WeaveMap joined this project after development had already begun.";
@@ -334,7 +338,6 @@
   function normalizedAgents() {
     const seen = new Set();
     const result = [];
-
     for (const entry of agents) {
       const name = typeof entry === "string" ? entry : entry?.name;
       const model = typeof entry === "object" && entry ? entry.model : null;
@@ -344,7 +347,6 @@
       seen.add(key);
       result.push({ name, model: model || null });
     }
-
     return result;
   }
 
@@ -361,10 +363,7 @@
     target.replaceChildren(...recorded.map((entry) => {
       const card = document.createElement("div");
       card.className = "agent-chip";
-      card.innerHTML = `
-        <strong>${escapeHtml(entry.name)}</strong>
-        <span>${entry.model ? escapeHtml(entry.model) : "Model unknown"}</span>
-      `;
+      card.innerHTML = `<strong>${escapeHtml(entry.name)}</strong><span>${entry.model ? escapeHtml(entry.model) : "Model unknown"}</span>`;
       return card;
     }));
   }
@@ -406,7 +405,6 @@
         const cell = document.createElement("div");
         cell.className = `wave-cell${frontierWaves.has(wave) ? " frontier-wave" : ""}`;
         const cellTasks = tasks.filter((task) => (task.workstream || "General") === workstream && waves.get(task.id) === wave);
-
         for (const task of cellTasks) {
           const state = taskState(task);
           const button = document.createElement("button");
@@ -424,7 +422,6 @@
         grid.appendChild(cell);
       }
     }
-
     container.replaceChildren(grid);
   }
 
@@ -459,14 +456,45 @@
     const ranked = rankTasks([...active, ...ready]);
     const recommended = ranked[0] || null;
     const blocked = tasks.filter(isBlocked).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
+    const waiting = tasks.filter(isWaiting).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
 
     $("next-label").textContent = recommended ? `Next: ${recommended.id}` : "";
     renderList("ready-list", ranked, "Nothing is currently ready.", recommended?.id);
-    renderList("blocked-list", blocked, "No blocked tasks.");
+    renderList("blocked-list", blocked, "No true blockers. Tasks waiting on dependencies are listed separately.");
+    renderList("waiting-list", waiting, "Nothing is waiting on dependencies.");
   }
 
-  function serializeState() {
-    return `window.WEAVEMAP = ${JSON.stringify(data, null, 2)};\n`;
+  function parseStateSource(source) {
+    const match = String(source).match(/^\s*window\.WEAVEMAP\s*=\s*([\s\S]*);\s*$/);
+    if (!match) throw new Error("The selected file is not a valid WeaveMap state.js file.");
+    const payload = match[1].trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(payload);
+    } catch {
+      parsed = Function(`\"use strict\"; return (${payload});`)();
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("state.js did not contain a valid WeaveMap state object.");
+    }
+    return parsed;
+  }
+
+  function serializeState(state) {
+    return `window.WEAVEMAP = ${JSON.stringify(state, null, 2)};\n`;
+  }
+
+  function mergeHumanNote(state, taskId, note) {
+    if (Number(state.schemaVersion || 0) !== CURRENT_SCHEMA_VERSION) {
+      throw new Error(`This runtime expects state schema v${CURRENT_SCHEMA_VERSION}. Update or migrate WeaveMap before saving notes.`);
+    }
+    if (!Array.isArray(state.tasks)) throw new Error("The latest state.js has no valid tasks array.");
+    const task = state.tasks.find((entry) => entry?.id === taskId);
+    if (!task) throw new Error(`${taskId} no longer exists in the latest state.js. Reopen WeaveMap to see the current project state.`);
+    if (!Array.isArray(task.notes)) task.notes = [];
+    if (!task.notes.every((entry) => typeof entry === "string")) throw new Error(`${taskId} has invalid notes in the latest state.js.`);
+    task.notes.push(note);
+    return task;
   }
 
   function downloadStateFile(content) {
@@ -481,38 +509,73 @@
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  async function persistState() {
-    const content = serializeState();
+  async function getDirectStateHandle() {
+    if (stateFileHandle) return stateFileHandle;
+    const handles = await window.showOpenFilePicker({
+      multiple: false,
+      types: [{ description: "WeaveMap state.js", accept: { "text/javascript": [".js"] } }]
+    });
+    const handle = handles[0] || null;
+    if (!handle || handle.name !== "state.js") throw new Error("Select this project's weavemap/state.js file.");
+    stateFileHandle = handle;
+    return handle;
+  }
 
-    if (typeof window.showOpenFilePicker === "function") {
-      if (!stateFileHandle) {
-        const handles = await window.showOpenFilePicker({
-          multiple: false,
-          types: [{
-            description: "WeaveMap state.js",
-            accept: { "text/javascript": [".js"] }
-          }]
-        });
-        stateFileHandle = handles[0] || null;
-        if (!stateFileHandle || stateFileHandle.name !== "state.js") {
-          stateFileHandle = null;
-          throw new Error("Select this project's weavemap/state.js file.");
-        }
-      }
-
-      const writable = await stateFileHandle.createWritable();
-      await writable.write(content);
+  async function persistMergedNoteDirect(taskId, note) {
+    const handle = await getDirectStateHandle();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const before = await handle.getFile();
+      const latestState = parseStateSource(await before.text());
+      const latestTask = mergeHumanNote(latestState, taskId, note);
+      const check = await handle.getFile();
+      if (check.lastModified !== before.lastModified || check.size !== before.size) continue;
+      const writable = await handle.createWritable();
+      await writable.write(serializeState(latestState));
       await writable.close();
-      return "direct";
+      return { mode: "direct", task: latestTask };
     }
+    throw new Error("state.js is changing right now. Wait for the AI write to finish, then save the note again.");
+  }
 
-    downloadStateFile(content);
-    return "download";
+  function chooseCurrentStateFile() {
+    return new Promise((resolve, reject) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".js,text/javascript,application/javascript";
+      input.hidden = true;
+      document.body.appendChild(input);
+      const cleanup = () => input.remove();
+      input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        cleanup();
+        if (!file) return reject(new DOMException("No file selected.", "AbortError"));
+        if (file.name !== "state.js") return reject(new Error("Select this project's current weavemap/state.js file."));
+        resolve(file);
+      }, { once: true });
+      input.addEventListener("cancel", () => {
+        cleanup();
+        reject(new DOMException("File selection cancelled.", "AbortError"));
+      }, { once: true });
+      input.click();
+    });
+  }
+
+  async function persistMergedNoteFallback(taskId, note) {
+    const file = await chooseCurrentStateFile();
+    const latestState = parseStateSource(await file.text());
+    const latestTask = mergeHumanNote(latestState, taskId, note);
+    downloadStateFile(serializeState(latestState));
+    return { mode: "download", task: latestTask };
+  }
+
+  async function persistMergedNote(taskId, note) {
+    if (typeof window.showOpenFilePicker === "function") return persistMergedNoteDirect(taskId, note);
+    return persistMergedNoteFallback(taskId, note);
   }
 
   function renderNotesList(notes) {
     if (!notes.length) return '<p class="notes-empty">No handoff notes yet.</p>';
-    return `<ul id="task-notes-list">${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    return `<ul>${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   }
 
   function openTask(taskId) {
@@ -549,13 +612,14 @@
           <button id="save-task-note" class="primary-button" type="button">Save note</button>
           <span id="note-save-status" class="muted" aria-live="polite"></span>
         </div>
-        <p class="note-help">Human notes are saved with a <code>Human:</code> prefix so the next AI can distinguish them from agent handoff notes. Refresh WeaveMap first if an AI has changed <code>state.js</code> since you opened this page.</p>
+        <p class="note-help">Human notes are saved with a <code>Human:</code> prefix. <strong>No refresh is required before saving:</strong> WeaveMap re-reads the latest <code>state.js</code> and merges only your note, preserving newer AI changes.</p>
       </div>
     `;
 
     const input = $("task-note-input");
     const saveButton = $("save-task-note");
     const status = $("note-save-status");
+    const notesView = $("task-notes-view");
 
     saveButton.addEventListener("click", async () => {
       const text = input.value.trim();
@@ -564,26 +628,19 @@
         input.focus();
         return;
       }
-
       const note = /^Human:\s/i.test(text) ? text : `Human: ${text}`;
-      task.notes.push(note);
       saveButton.disabled = true;
-      status.textContent = "Saving…";
-
+      status.textContent = "Reading latest state.js and merging note…";
       try {
-        const mode = await persistState();
-        $("task-notes-view").innerHTML = renderNotesList(task.notes);
+        const result = await persistMergedNote(task.id, note);
+        task.notes = [...result.task.notes];
+        notesView.innerHTML = renderNotesList(task.notes);
         input.value = "";
-        if (mode === "direct") {
-          status.textContent = "Saved to state.js. The next AI pass will see it.";
-        } else {
-          status.textContent = "Updated state.js downloaded. Replace weavemap/state.js with it to persist the note.";
-        }
+        status.textContent = result.mode === "direct"
+          ? "Saved into the latest state.js. Newer AI changes were preserved."
+          : "Merged with the selected current state.js. Replace weavemap/state.js with the downloaded file.";
       } catch (error) {
-        task.notes.pop();
-        status.textContent = error?.name === "AbortError"
-          ? "Save cancelled."
-          : (error?.message || "Could not save the note.");
+        status.textContent = error?.name === "AbortError" ? "Save cancelled." : (error?.message || "Could not save the note.");
       } finally {
         saveButton.disabled = false;
       }
@@ -616,7 +673,6 @@ Report the old runtime/schema version, the new runtime/schema version, whether a
 
   function copyText(value) {
     if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
-
     return new Promise((resolve, reject) => {
       const textarea = document.createElement("textarea");
       textarea.value = value;
@@ -647,19 +703,17 @@ Report the old runtime/schema version, the new runtime/schema version, whether a
     const updateDialog = $("update-dialog");
     const prompt = safeUpdatePrompt();
     $("update-prompt").textContent = prompt;
-
     $("update-button").addEventListener("click", () => updateDialog.showModal());
     updateDialog.querySelector(".update-close").addEventListener("click", () => updateDialog.close());
     updateDialog.addEventListener("click", (event) => {
       if (event.target === updateDialog) updateDialog.close();
     });
-
     $("copy-update-prompt").addEventListener("click", async () => {
       const status = $("copy-status");
       try {
         await copyText(prompt);
         status.textContent = "Copied.";
-      } catch (error) {
+      } catch {
         status.textContent = "Copy failed — select the prompt manually.";
       }
     });
