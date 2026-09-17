@@ -36,7 +36,14 @@ p { margin: 0; line-height: 1.5; }
 .stats span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 .stats strong { font-size: 20px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
-.agents-panel { margin-bottom: 12px; }
+.adoption-panel, .agents-panel { margin-bottom: 12px; }
+.mode-badge { align-self: flex-start; border: 1px solid var(--line); background: var(--soft); border-radius: 999px; padding: 5px 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.baseline-summary { margin-bottom: 12px; color: var(--text); }
+.baseline-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.baseline-card { border: 1px solid var(--line); border-radius: 6px; padding: 11px 12px; background: #fafaf8; }
+.baseline-card h3 { margin: 0 0 8px; }
+.baseline-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.baseline-card li + li { margin-top: 4px; }
 .agent-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .agent-chip { min-width: 170px; border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; display: grid; gap: 3px; background: #fafaf8; }
 .agent-chip strong { font-size: 13px; }
@@ -94,7 +101,7 @@ dialog::backdrop { background: rgba(0,0,0,.25); }
   .shell { padding: 16px; }
   .topbar { flex-direction: column; gap: 10px; }
   .stats { grid-template-columns: 1fr 1fr; }
-  .columns { grid-template-columns: 1fr; }
+  .columns, .baseline-grid { grid-template-columns: 1fr; }
   .section-heading { flex-direction: column; }
   .map-grid { grid-template-columns: 110px repeat(var(--wave-count), minmax(160px, 1fr)); }
 }
