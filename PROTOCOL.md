@@ -24,6 +24,8 @@ Do not assume any root-level agent instruction file belongs to WeaveMap.
 
 When WeaveMap is embedded in another repository, normally edit only `weavemap/state.js`. Do not modify `weavemap/index.html`, `weavemap/app.js`, or `weavemap/style.css` unless the user is explicitly developing WeaveMap itself.
 
+Keep `state.js` data-only: use JSON-compatible literals wrapped in `window.WEAVEMAP = ...`. Do not add functions, imports, computed properties, runtime expressions, or helper variables.
+
 ## Agent and model identity
 
 WeaveMap records which AI agents have worked on the project so the human observer can see the project's AI toolchain.
@@ -63,19 +65,30 @@ When `project.entryMode` is `"adopted"`, treat initialization as a baseline anal
 
 Inspect the current repository carefully, including relevant source code, configuration, documentation, tests, CI/deployment files, schemas, TODOs, and version history when available and useful. Reconstruct the present state of the project, not an imagined history of how it got there.
 
-Set `adoption` to:
+Use this v4 adoption structure:
 
 ```js
 adoption: {
   baselineSummary: "Concise description of the project state when WeaveMap joined.",
   established: [
-    "Capabilities or foundations clearly evidenced in the repository"
+    {
+      text: "Capability clearly established by repository evidence.",
+      evidence: ["relative/path/to/file.ext"]
+    }
   ],
   gaps: [
-    "Important missing, incomplete, broken, or unfinished areas"
+    {
+      text: "Important missing, incomplete, broken, or unfinished area.",
+      evidence: ["relative/path/to/file.ext"],
+      taskIds: ["T-004"],
+      disposition: "tracked"
+    }
   ],
   uncertainties: [
-    "Things the repository does not establish with enough confidence"
+    {
+      text: "Something the repository does not establish confidently.",
+      evidence: []
+    }
   ]
 }
 ```
@@ -83,16 +96,22 @@ adoption: {
 Adoption rules:
 
 - Only put something in `established` when repository evidence or an explicit user statement supports it.
+- When a repository path supports an adoption finding, record the smallest useful set of repository-relative paths in `evidence`.
+- Evidence is for verification and handoff, not exhaustive citation. Prefer 1-3 high-value paths over long lists.
 - Put ambiguous or conflicting findings in `uncertainties`; do not guess.
 - Do not invent historical tasks and mark them `done` merely to recreate a fictional project history.
 - Existing implemented capabilities belong in the adoption baseline, not as fake completed tasks.
 - Create tasks for remaining work, clearly incomplete work, fixes, migrations, cleanup, missing tests, current roadmap items, and other actionable work that exists from the adoption point forward.
 - If the repository clearly shows a piece of work already in progress, it may be represented as an `active` task with a note that it predates WeaveMap adoption.
 - If future work relies on a capability already present at adoption, treat that capability as an established baseline rather than creating an artificial completed dependency task.
+- Every adoption gap must have a disposition: `tracked`, `deferred`, or `accepted`.
+- A `tracked` gap must reference at least one real task ID in `taskIds`.
+- `deferred` means the gap is intentionally postponed and should not silently block current execution.
+- `accepted` means the user or project has consciously accepted the gap or risk for now.
 - Progress shown by WeaveMap after adoption reflects the work tracked by WeaveMap from the adoption baseline forward, not the percentage of the project's entire historical lifetime.
 - Preserve the user's stated roadmap or current objective when it is available, but verify implementation state against the repository.
 
-The human UI will display the adoption baseline separately from the execution map.
+The human UI displays the adoption baseline separately from the execution map.
 
 ## First initialization
 
@@ -102,13 +121,14 @@ If `weavemap/state.js` has `initialized: false`:
 2. Determine and set `project.entryMode` to `"new"` or `"adopted"`.
 3. Set the project name, summary, and current high-level phase.
 4. Record your agent/model identity in `agents`.
-5. If the project is adopted, create the `adoption` baseline before planning future work. If it is new, leave `adoption` as `null`.
+5. If the project is adopted, create the evidence-backed `adoption` baseline before planning future work. If it is new, leave `adoption` as `null`.
 6. Define only the workstreams the project actually needs. Examples may include Product, Architecture, Design, Frontend, Backend, Data, Infrastructure, QA, Security, Release, Mobile, AI, or Documentation. Do not create empty boilerplate workstreams.
-7. Add explicit requirements supported by the user's goal, project documentation, or current implementation.
-8. Add known architectural/product decisions only when they are actually decided.
+7. Add explicit requirements supported by the user's goal, project documentation, repository evidence, or clearly labeled agent proposals.
+8. Add known architectural/product decisions only when they are actually decided; distinguish discovered decisions from agent proposals.
 9. Decompose actionable remaining work into tasks with meaningful dependency relationships.
 10. Validate that dependencies are acyclic and point to real task IDs.
-11. Set `initialized: true` before beginning implementation.
+11. Ensure every adoption gap is tracked, deferred, or accepted.
+12. Set `initialized: true` before beginning implementation.
 
 ## Task schema
 
@@ -137,6 +157,16 @@ Effort is a relative AI-work estimate from 1 to 5. A task estimated at 5 should 
 
 Priority uses `P1` (highest) through `P5` (lowest).
 
+## Dependency semantics
+
+`dependsOn` is a hard execution dependency.
+
+Add `A` to `B.dependsOn` only when task B cannot reasonably be executed or verified until task A is complete. Do not use hard dependencies merely because one task would be cleaner, nicer, safer, or more convenient to do first.
+
+If two tasks are independent, leave them independent so WeaveMap can expose parallel work in the ready frontier.
+
+Before adding a dependency, ask: **Would it be valid and useful to execute the downstream task now if the upstream task were still unfinished?** If yes, do not add the dependency.
+
 ## Execution rules
 
 Before starting development work:
@@ -150,31 +180,64 @@ Before starting development work:
 During work:
 
 - Keep the active task's `spec` and `notes` useful for another agent.
-- When new required work is discovered, create a new task in `weavemap/state.js` and connect its dependencies instead of leaving an orphan TODO in chat or code.
+- When new required work is discovered, create a new task in `weavemap/state.js` and connect only true hard dependencies instead of leaving an orphan TODO in chat or code.
 - If a discovery changes requirements or architecture, update `requirements` or append a `decision` as appropriate.
 - Do not silently rewrite historical decisions; append a superseding decision.
+- If new work corresponds to an adoption gap, update that gap's `taskIds` and `disposition`.
 - Use `blocked` only for a real blocker not already represented by unfinished dependencies. Dependency blocking is calculated automatically by the UI.
 
 When work finishes:
 
 1. Verify the acceptance criteria.
 2. Set the task to `done` in `weavemap/state.js`.
-3. Update project phase if the project has materially moved forward.
-4. Re-read the graph before selecting the next task.
+3. Update related adoption gap dispositions if the work closes or changes a gap.
+4. Update project phase if the project has materially moved forward.
+5. Re-read the graph before selecting the next task.
+
+## Acceptance criteria fidelity
+
+Acceptance criteria may be inferred or proposed by the agent when needed, but they must not masquerade as established project requirements.
+
+- Do not invent arbitrary numeric thresholds, time limits, performance targets, compatibility guarantees, or regulatory requirements unless they are supported by the user, repository documentation, code, tests, or another explicit source.
+- If no source establishes a numeric threshold, prefer a qualitative observable criterion.
+- If a speculative numeric threshold is genuinely useful, label it explicitly in the criterion as `Proposed:` so another agent and the human can distinguish it from established requirements.
+
+Example:
+
+```js
+acceptance: [
+  "BLE connection recovers after temporary signal loss without losing the active session.",
+  "Proposed: reconnection completes within 10 seconds under the reference test setup."
+]
+```
 
 ## Requirements
 
-Requirements are concise objects:
+Requirements are concise objects with provenance:
 
 ```js
-{ id: "R-001", text: "Users can sign in with email and password.", status: "active" }
+{
+  id: "R-001",
+  text: "Users can sign in with email and password.",
+  status: "active",
+  origin: "repo",
+  evidence: ["docs/auth.md", "backend/routes/auth.js"]
+}
 ```
 
-Use `active`, `satisfied`, or `dropped` for requirement status.
+Allowed requirement statuses: `active`, `satisfied`, `dropped`.
+
+Allowed origins:
+
+- `user` - explicitly stated by the user.
+- `repo` - established by repository code, tests, documentation, configuration, or version history.
+- `agent` - proposed or inferred by the AI and not yet established by the user or repository.
+
+For `repo` requirements, include concise repository-relative `evidence` paths when available. For `user` or `agent` origins, `evidence` may be empty.
 
 ## Decisions
 
-Decisions preserve why the project took a direction:
+Decisions preserve why the project took a direction and where that knowledge came from:
 
 ```js
 {
@@ -182,15 +245,40 @@ Decisions preserve why the project took a direction:
   title: "Use SQLite for local storage",
   rationale: "The application is offline-first and single-user.",
   status: "active",
-  supersedes: null
+  supersedes: null,
+  origin: "repo",
+  evidence: ["src/storage/database.dart"]
 }
 ```
 
-If a decision changes, add a new decision and set `supersedes` to the previous decision ID.
+Allowed decision statuses: `active`, `superseded`.
+
+Use the same `origin` values as requirements: `user`, `repo`, or `agent`.
+
+If a decision changes, add a new decision and set `supersedes` to the previous decision ID. Mark the superseded decision `status: "superseded"`.
+
+## State validation expectations
+
+Before relying on the project graph, ensure the state is internally valid. At minimum:
+
+- task, requirement, and decision IDs are unique within their collections;
+- task statuses are one of `todo`, `active`, `blocked`, `done`, `skipped`;
+- priorities are `P1` through `P5`;
+- effort is an integer from 1 through 5;
+- all dependencies reference real task IDs;
+- the dependency graph is acyclic;
+- requirement statuses and decision statuses are valid;
+- requirement and decision origins are `user`, `repo`, or `agent`;
+- adopted projects have an adoption baseline;
+- adoption gap dispositions are `tracked`, `deferred`, or `accepted`;
+- every `tracked` gap references at least one real task;
+- every gap `taskIds` entry references a real task.
+
+The observer UI performs defensive validation, but agents should avoid writing invalid state in the first place.
 
 ## Human control
 
-The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, or redefine work. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
+The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, defer, accept, or redefine work. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
 
 ## Using WeaveMap with common AI agents
 
