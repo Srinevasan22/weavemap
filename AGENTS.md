@@ -2,15 +2,28 @@
 
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
 
+## Embedded location
+
+WeaveMap is intended to live inside the host repository as a `weavemap/` folder.
+
+When you are asked to initialize or use WeaveMap in a host project:
+
+1. Read `weavemap/AGENTS.md` completely.
+2. Inspect the host project outside the `weavemap/` folder.
+3. Read and maintain `weavemap/state.js` as the canonical project-management state.
+4. Use the host repository, not chat history, as the authoritative context for continuing work.
+
+Do not assume a root-level `AGENTS.md` or `state.js` belongs to WeaveMap.
+
 ## Source of truth
 
-`state.js` is the canonical project state. The UI derives waves, readiness, blockers, progress, and the recommended next task from it. Do not manually assign wave numbers.
+`weavemap/state.js` is the canonical project state. The UI derives waves, readiness, blockers, progress, and the recommended next task from it. Do not manually assign wave numbers.
 
-When WeaveMap is embedded in another repository, normally edit only `state.js`. Do not modify `index.html`, `app.js`, or `style.css` unless the user is explicitly developing WeaveMap itself.
+When WeaveMap is embedded in another repository, normally edit only `weavemap/state.js`. Do not modify `weavemap/index.html`, `weavemap/app.js`, or `weavemap/style.css` unless the user is explicitly developing WeaveMap itself.
 
 ## First initialization
 
-If `initialized` is `false`:
+If `weavemap/state.js` has `initialized: false`:
 
 1. Inspect the host project and the user's stated goal.
 2. Set the project name, summary, and current high-level phase.
@@ -52,16 +65,16 @@ Priority uses `P1` (highest) through `P5` (lowest).
 
 Before starting development work:
 
-1. Read `state.js`.
+1. Read `weavemap/state.js`.
 2. Continue an `active` task when appropriate.
 3. Otherwise select a `todo` task whose dependencies are all `done` or `skipped`.
 4. Prefer, in order: higher priority, tasks that unblock more downstream work, then lower effort.
-5. Set the chosen task to `active` before substantial implementation begins.
+5. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
 
 During work:
 
 - Keep the active task's `spec` and `notes` useful for another agent.
-- When new required work is discovered, create a new task and connect its dependencies instead of leaving an orphan TODO in chat or code.
+- When new required work is discovered, create a new task in `weavemap/state.js` and connect its dependencies instead of leaving an orphan TODO in chat or code.
 - If a discovery changes requirements or architecture, update `requirements` or append a `decision` as appropriate.
 - Do not silently rewrite historical decisions; append a superseding decision.
 - Use `blocked` only for a real blocker not already represented by unfinished dependencies. Dependency blocking is calculated automatically by the UI.
@@ -69,7 +82,7 @@ During work:
 When work finishes:
 
 1. Verify the acceptance criteria.
-2. Set the task to `done`.
+2. Set the task to `done` in `weavemap/state.js`.
 3. Update project phase if the project has materially moved forward.
 4. Re-read the graph before selecting the next task.
 
@@ -101,4 +114,4 @@ If a decision changes, add a new decision and set `supersedes` to the previous d
 
 ## Human control
 
-The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, or redefine work. Update `state.js` so the repo reflects those decisions instead of relying on chat history.
+The user remains authoritative. Explicit user instructions can reprioritize, skip, add, remove, or redefine work. Update `weavemap/state.js` so the repo reflects those decisions instead of relying on chat history.
