@@ -157,6 +157,32 @@ Effort is a relative AI-work estimate from 1 to 5. A task estimated at 5 should 
 
 Priority uses `P1` (highest) through `P5` (lowest).
 
+### Task notes are persistent handoff memory
+
+Every task must have a `notes` array. Notes are concise, persistent context for the next AI pass on that task.
+
+Before starting or continuing a task, read its `notes` before making implementation decisions. This applies even when the same agent is returning to the task in a later session.
+
+Use notes for information that is useful to the next pass but does not belong in the stable task specification, for example:
+
+- partial findings and what has already been checked;
+- important file paths, commands, test results, or environment caveats;
+- failed approaches that should not be repeated;
+- user clarifications specific to the task;
+- implementation gotchas or unresolved questions;
+- handoff context when a task remains `active` or becomes `blocked`.
+
+Keep notes short and actionable. Do not copy chat transcripts or duplicate the task `spec`. Update or remove stale notes when they would mislead the next agent.
+
+Example:
+
+```js
+notes: [
+  "Scanner regression currently fails only on target_05.jpg; outer-ring detection was already ruled out.",
+  "Next pass: inspect cluster split threshold in scanner_v2/core/hole_detection.py before changing Hough parameters."
+]
+```
+
 ## Dependency semantics
 
 `dependsOn` is a hard execution dependency.
@@ -175,11 +201,14 @@ Before starting development work:
 2. Continue an `active` task when appropriate.
 3. Otherwise select a `todo` task whose dependencies are all `done` or `skipped`.
 4. Prefer, in order: higher priority, tasks that unblock more downstream work, then lower effort.
-5. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
+5. Read the selected task's `notes` completely before deciding how to proceed.
+6. Set the chosen task to `active` in `weavemap/state.js` before substantial implementation begins.
 
 During work:
 
-- Keep the active task's `spec` and `notes` useful for another agent.
+- Keep the active task's `spec` stable enough for another agent to understand the intended work.
+- Add or update `notes` whenever a finding, failed approach, caveat, user clarification, or partial result would save the next pass from rediscovering it.
+- When pausing an unfinished task, leave at least one useful handoff note when there is non-obvious context to preserve.
 - When new required work is discovered, create a new task in `weavemap/state.js` and connect only true hard dependencies instead of leaving an orphan TODO in chat or code.
 - If a discovery changes requirements or architecture, update `requirements` or append a `decision` as appropriate.
 - Do not silently rewrite historical decisions; append a superseding decision.
@@ -189,10 +218,11 @@ During work:
 When work finishes:
 
 1. Verify the acceptance criteria.
-2. Set the task to `done` in `weavemap/state.js`.
-3. Update related adoption gap dispositions if the work closes or changes a gap.
-4. Update project phase if the project has materially moved forward.
-5. Re-read the graph before selecting the next task.
+2. Remove or revise stale handoff notes, while preserving any note that remains useful for future maintenance or downstream tasks.
+3. Set the task to `done` in `weavemap/state.js`.
+4. Update related adoption gap dispositions if the work closes or changes a gap.
+5. Update project phase if the project has materially moved forward.
+6. Re-read the graph before selecting the next task.
 
 ## Acceptance criteria fidelity
 
@@ -265,6 +295,7 @@ Before relying on the project graph, ensure the state is internally valid. At mi
 - task statuses are one of `todo`, `active`, `blocked`, `done`, `skipped`;
 - priorities are `P1` through `P5`;
 - effort is an integer from 1 through 5;
+- every task has a `notes` array containing only strings;
 - all dependencies reference real task IDs;
 - the dependency graph is acyclic;
 - requirement statuses and decision statuses are valid;
