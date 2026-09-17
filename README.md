@@ -28,6 +28,17 @@ The protocol is agent-agnostic and includes examples for common AI coding agents
 
 Open `weavemap/index.html` in a browser whenever you want to inspect the project.
 
+## New or already in progress
+
+WeaveMap is designed to work both at the beginning of a project and when it is added halfway through an existing one.
+
+On first initialization the AI inspects the host repository and sets the project entry mode automatically:
+
+- **New** — the project is effectively starting from scratch, so the AI creates the initial requirements, tasks, dependencies, and waves.
+- **Adopted** — meaningful work already exists, so the AI first creates an evidence-based baseline of what is established, what is missing or incomplete, and what remains uncertain. It then plans actionable work from that baseline forward.
+
+For adopted projects, WeaveMap does **not** invent historical completed tasks just to reconstruct a fictional timeline. Existing capabilities are recorded separately in the adoption baseline, while the execution map tracks work from the point WeaveMap joins the project.
+
 ## No install
 
 WeaveMap has:
@@ -51,6 +62,7 @@ The project state lives in `weavemap/state.js` and travels with the repository.
 - **Requirements** record what the project must achieve.
 - **Decisions** preserve important project choices and why they were made.
 - **Agents used** records each unique AI agent/model combination that has managed or worked on the project. Agents record the exact model only when they can reliably identify it; otherwise the model remains unknown.
+- **Adoption baseline** records the established capabilities, gaps, and uncertainties found when WeaveMap joins an existing project.
 
 The execution map is derived automatically. The AI should not manually assign wave numbers.
 
