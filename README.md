@@ -2,7 +2,7 @@
 
 **Project management for AI. A map for humans.**
 
-WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, and dependencies. The human opens a static execution map to see what is done, what is ready, what is blocked, and how work progresses through dependency **waves**.
+WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, dependencies, and its own agent/model identity. The human opens a static execution map to see what is done, what is ready, what is blocked, which AI agents have worked on the project, and how work progresses through dependency **waves**.
 
 ## Drop it into a project
 
@@ -50,6 +50,7 @@ The project state lives in `weavemap/state.js` and travels with the repository.
 - **Recommended next** prefers active work, then priority, downstream impact, and lower effort.
 - **Requirements** record what the project must achieve.
 - **Decisions** preserve important project choices and why they were made.
+- **Agents used** records each unique AI agent/model combination that has managed or worked on the project. Agents record the exact model only when they can reliably identify it; otherwise the model remains unknown.
 
 The execution map is derived automatically. The AI should not manually assign wave numbers.
 
