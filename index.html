@@ -5,6 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WeaveMap</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .stats article { overflow: visible; z-index: 1; }
+    .stats article:hover, .stats article:focus-within { z-index: 100; }
+    .info-tooltip { z-index: 110; }
+    .info-tooltip::after {
+      left: 50%;
+      top: calc(100% + 10px);
+      width: max-content;
+      max-width: min(260px, calc(100vw - 32px));
+      white-space: normal;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.45;
+      padding: 9px 11px;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(16,24,40,.18);
+    }
+    .info-tooltip::before {
+      content: "";
+      position: absolute;
+      z-index: 111;
+      left: 50%;
+      top: calc(100% + 4px);
+      width: 10px;
+      height: 10px;
+      background: #171717;
+      transform: translateX(-50%) rotate(45deg);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s ease;
+    }
+    .info-tooltip:hover::before, .info-tooltip:focus::before { opacity: 1; }
+  </style>
 </head>
 <body>
   <main class="shell">
