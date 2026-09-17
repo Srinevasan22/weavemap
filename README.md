@@ -2,13 +2,28 @@
 
 **Project management for AI. A map for humans.**
 
+[![WeaveMap Observer Preview](assets/weavemap-observer.png)](https://github.com/Srinevasan22/weavemap)
+
 **Current runtime:** `v1.0.0` · **State schema:** `v4`
 
 WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains project state, dependencies, provenance, requirements, decisions, handoff notes, approval gates, verification instructions, requirement coverage, and lightweight completion evidence. The human opens a static observer to see what can run now, what is waiting normally, what genuinely needs intervention, and how work moves through dependency waves.
 
-## Drop it into a project
+## Quick Install
 
-Copy these files into `weavemap/`:
+Drop WeaveMap into any repository with a single command:
+
+**macOS / Linux / WSL / Git Bash:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Srinevasan22/weavemap/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Srinevasan22/weavemap/main/install.ps1 | iex
+```
+
+<details>
+<summary>Or manually copy the files into your project</summary>
 
 ```text
 your-project/
@@ -21,6 +36,7 @@ your-project/
     ├── app.js
     └── style.css
 ```
+</details>
 
 Then tell any coding AI:
 
@@ -97,6 +113,8 @@ You can also tell an AI:
 > Update WeaveMap in this project to the latest version from `https://github.com/Srinevasan22/weavemap`. Back up `weavemap/state.js`, replace only `PROTOCOL.md`, `index.html`, `app.js`, and `style.css`, never replace the project's state with the blank template, read the new protocol, migrate only if the schema changed, preserve all project knowledge, validate, and delete the backup only after validation passes.
 
 ## Core execution model
+
+[![WeaveMap Execution Map](assets/weavemap-execution-map.png)](https://github.com/Srinevasan22/weavemap)
 
 - **Tasks** contain goal, implementation spec, acceptance criteria, priority, effort, status, dependencies, and handoff notes.
 - **Dependencies** are hard execution dependencies.
