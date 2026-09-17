@@ -1,6 +1,6 @@
 # WeaveMap protocol
 
-**Runtime version:** `0.9.0`  
+**Runtime version:** `1.0.0`  
 **Current state schema:** `4`
 
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
@@ -19,7 +19,7 @@ When asked to initialize or use WeaveMap:
 4. Record your agent/model identity when reliably known.
 5. Treat the repository, not chat history, as the durable source of truth.
 
-Normally edit only `weavemap/state.js`. Do not modify the runtime files unless the user is explicitly developing or updating WeaveMap.
+Normally edit only `weavemap/state.js`. Do not modify runtime files unless the user is explicitly developing or updating WeaveMap.
 
 Keep `state.js` data-only: JSON-compatible literals wrapped in `window.WEAVEMAP = ...`. Do not add functions, imports, computed properties, runtime expressions, or helper variables.
 
@@ -53,7 +53,7 @@ Safe update procedure:
 7. Delete the backup only after validation succeeds.
 8. Do not modify host application code as part of a WeaveMap runtime update unless separately requested.
 
-Runtime `v0.9.0` remains compatible with state schema `v4`; its new task fields are optional.
+Runtime `v1.0.0` remains compatible with state schema `v4`; all new task fields are optional.
 
 ## Agent and model identity
 
@@ -73,7 +73,7 @@ Rules:
 - Never infer or guess a model from provider or agent name.
 - Use `null` when the exact model is unknown.
 - Do not duplicate an identical name/model pair.
-- Do not add timestamps or token counts unless the schema is extended later.
+- Do not add timestamps or token counts unless the schema is explicitly extended later.
 
 ## Initialization mode
 
@@ -135,10 +135,13 @@ If `initialized: false`:
 7. Add explicit requirements with provenance.
 8. Add actual decisions with provenance.
 9. Decompose actionable remaining work into tasks.
-10. Add only true hard dependencies.
-11. Run the dependency sanity pass below.
-12. Validate the DAG and state.
-13. Set `initialized: true` before implementation.
+10. Give each task an `origin` when its source is known.
+11. Link tasks to requirements with `requirementIds` when they materially deliver those requirements.
+12. Add only true hard dependencies.
+13. Run the dependency sanity pass.
+14. Review active requirement coverage and resolve obvious planning omissions.
+15. Validate the DAG and state.
+16. Set `initialized: true` before implementation.
 
 ## Task schema
 
@@ -167,11 +170,13 @@ Priority: `P1` highest through `P5` lowest.
 
 Effort: relative AI work estimate `1` through `5`. Effort `5` should usually be decomposed.
 
-### Optional AI-execution fields
+### Optional coordination and provenance fields
 
-Use these only when they add real value:
+Use only when they add real value:
 
 ```js
+origin: "repo",
+requirementIds: ["R-002", "R-006"],
 affectedPaths: ["scanner_v2/test_samples/**"],
 verification: {
   command: "py scanner_v2/test_regression.py"
@@ -183,11 +188,49 @@ humanApproval: {
 completion: {
   by: "Antigravity",
   commit: "dbf2d95",
-  verification: "py scanner_v2/test_regression.py"
+  verification: {
+    command: "py scanner_v2/test_regression.py",
+    result: "passed"
+  }
 }
 ```
 
-These fields are optional and schema-v4 compatible.
+All of these remain optional and schema-v4 compatible.
+
+## Task origin
+
+Task `origin` uses the same vocabulary as requirements and decisions:
+
+- `user` — explicitly requested by the user;
+- `repo` — discovered from code, tests, documentation, TODOs, failures, or other repository evidence;
+- `agent` — proposed by an AI during planning or implementation.
+
+Rules:
+
+- Do not guess origin when it is unclear; omit it rather than inventing provenance.
+- `origin: "agent"` means the task is AI-proposed. It does not automatically make material product scope a user commitment.
+- If the user explicitly adopts an agent proposal, update provenance where appropriate.
+- Task origin is informational; priority, dependencies, approvals, and acceptance criteria still control execution.
+
+## Requirement coverage
+
+Tasks may link to the requirements they materially deliver:
+
+```js
+requirementIds: ["R-002", "R-006"]
+```
+
+Rules:
+
+- Reference only real requirement IDs.
+- Link a task only when completing that task materially contributes to satisfying the requirement.
+- Multiple tasks may cover one requirement, and one task may cover multiple requirements.
+- Do not create artificial tasks merely to make every requirement appear covered.
+- Requirements already satisfied by the adoption baseline should normally be marked `satisfied`, not left `active` solely to create task coverage.
+- Before finalizing or materially replanning the graph, review **active** requirements that have no non-skipped task coverage.
+- An uncovered active requirement is a planning signal, not automatically an error: resolve it by adding legitimate work, marking the requirement satisfied/dropped when justified, or preserving a clear reason for intentional non-coverage.
+
+The observer derives coverage automatically from `requirementIds` and highlights uncovered active requirements.
 
 ## Task decomposition quality
 
@@ -278,7 +321,7 @@ Human-written notes are prefixed `Human:` and represent explicit user context/in
 
 Keep notes short and actionable. Do not paste chat transcripts or duplicate the stable task spec.
 
-## Expected edit scope (`affectedPaths`)
+## Expected edit scope and parallel-agent coordination
 
 `affectedPaths` is advisory coordination metadata for agents and subagents.
 
@@ -294,9 +337,13 @@ affectedPaths: [
 Rules:
 
 - It is not a file lock and does not prohibit necessary adjacent changes.
-- Before parallel work, compare affected paths for likely overlap.
-- If two ready tasks have strongly overlapping edit scopes, avoid unsafe parallel modification unless the agents coordinate.
 - Keep paths compact; do not list every file when one directory/glob communicates the same information.
+- Before parallel work, compare affected paths for likely overlap.
+- If two ready/active tasks have strongly overlapping edit scopes, treat that as a **coordination warning**, not an automatic blocker.
+- Prefer assigning overlapping work sequentially or coordinating ownership explicitly when simultaneous edits would be unsafe.
+- If implementation legitimately expands beyond the expected scope, update `affectedPaths` when that information will help the next agent.
+
+The observer derives potential collisions from ready/active task path overlap and surfaces them without preventing execution.
 
 ## Verification commands
 
@@ -317,27 +364,44 @@ Rules:
 - If it cannot be run, do not falsely record it as successful; note why and use other acceptance evidence.
 - A failing verification command normally means the task is not done unless the failure is demonstrably unrelated and recorded.
 
-## Completion provenance
+## Verification result and completion provenance
 
-When an agent marks a task `done`, add compact completion metadata when reliably known:
+New completions should use a structured verification result:
 
 ```js
 completion: {
   by: "Codex",
   commit: "dbf2d95",
-  verification: "npm test -- session-service"
+  verification: {
+    command: "npm test -- session-service",
+    result: "passed",
+    note: "Optional concise context"
+  }
 }
 ```
+
+Allowed `completion.verification.result` values:
+
+- `passed` — the recorded verification completed successfully;
+- `failed` — verification failed; a task must not be `done` with this result;
+- `not-run` — verification was not executed;
+- `human-override` — a human explicitly marked the task done without claiming automated verification;
+- `not-applicable` — verification is not relevant, such as an intentionally skipped task.
 
 Rules:
 
 - `by` identifies the agent or human that closed the task.
 - `commit` is the relevant commit SHA only when a meaningful commit exists and is known.
-- `verification` records the verification actually performed, not merely the planned command.
-- Do not invent a commit SHA or verification result.
-- Dates are intentionally omitted; time is not a WeaveMap planning axis.
-- A human observer action that marks a task done records `by: "Human"` and `verification: "human-override"` rather than pretending automated verification occurred.
+- `command` records what actually ran, not merely the planned command.
+- Never invent a commit SHA or verification result.
+- If `verification.command` is configured and passes, prefer recording the same command with `result: "passed"`.
+- If a task is done without running the configured command, use `not-run` only when completion is still justified by other evidence and explain that briefly in `note` or task notes.
+- Do not mark a task `done` with `result: "failed"`.
+- Human observer completion uses `human-override` and must not be treated as proof that automated verification ran.
 - Reopening a task removes stale completion metadata.
+- Dates are intentionally omitted; time is not a WeaveMap planning axis.
+
+Legacy v0.9 string-form `completion.verification` remains readable, but agents should write the structured form for new completions.
 
 ## Requirements and provisional scope
 
@@ -355,15 +419,15 @@ Requirement object:
 
 Allowed origins:
 
-- `user` - explicitly stated by the user;
-- `repo` - established by repository code/tests/docs/config/history;
-- `agent` - proposed or inferred by AI and not yet established by the user or repository.
+- `user` — explicitly stated by the user;
+- `repo` — established by repository code/tests/docs/config/history;
+- `agent` — proposed or inferred by AI and not yet established by the user or repository.
 
 **Agent-origin requirements and scope are proposals, not commitments.**
 
 An agent-origin planning envelope such as "5 regions / ~30 areas" must not silently become committed production scope or automatically generate a large downstream production plan as if approved.
 
-When material proposed scope requires commitment, create an explicit human approval gate. Once the user approves, update the requirement/decision provenance appropriately rather than continuing to present it as an unapproved agent proposal.
+When material proposed scope requires commitment, create an explicit human approval gate. Once the user approves, update requirement/decision provenance appropriately rather than continuing to present it as an unapproved agent proposal.
 
 Allowed requirement statuses: `active`, `satisfied`, `dropped`.
 
@@ -393,18 +457,22 @@ Before substantial work:
 
 1. Read `state.js`.
 2. Read all `active` tasks and the Ready Frontier.
-3. Continue appropriate active work first.
-4. Otherwise choose a ready task by priority, downstream impact, then lower effort.
-5. Do not choose a pending human-approval gate as AI execution work.
-6. Read the selected task's notes.
-7. Review `affectedPaths` when present.
-8. Set the selected task `active` before substantial implementation.
+3. Review uncovered active requirements when planning context has materially changed.
+4. Continue appropriate active work first.
+5. Otherwise choose a ready task by priority, downstream impact, then lower effort.
+6. Do not choose a pending human-approval gate as AI execution work.
+7. Read the selected task's notes.
+8. Review task origin, `requirementIds`, and `affectedPaths` when present.
+9. Check ready/active path-overlap warnings before starting parallel work.
+10. Set the selected task `active` before substantial implementation.
 
 During work:
 
 - Keep `spec` stable enough for another agent to continue.
 - Update handoff notes when new information would save future rediscovery.
 - Create tasks for newly discovered required work rather than leaving orphan TODOs in chat.
+- Give new tasks an origin when known.
+- Link new tasks to requirements when they materially cover them.
 - Connect only true hard dependencies.
 - Update adoption gap references when appropriate.
 - If multiple agents work in parallel, compare `affectedPaths` for likely conflicts.
@@ -413,12 +481,13 @@ When finishing:
 
 1. Verify every acceptance criterion.
 2. Run `verification.command` when present, safe, and available.
-3. Preserve the actual verification result in `completion.verification` when marking done.
+3. Record the actual structured verification result in `completion.verification` when closing the task.
 4. Add reliable `completion.by` and commit provenance when known.
 5. Remove or revise stale notes while preserving useful maintenance/handoff information.
 6. Set the task `done` only after verification is sufficient.
-7. Update adoption gap disposition/coverage if needed.
-8. Re-read the graph before selecting the next task.
+7. Update requirement statuses when completion actually satisfies them; do not mark requirements satisfied merely because a linked task exists.
+8. Update adoption gap disposition/coverage if needed.
+9. Re-read the graph before selecting the next task.
 
 ## Human observer controls
 
@@ -434,7 +503,20 @@ The observer can merge-safe edits into the latest `state.js` for:
 
 These controls do not remove the AI's responsibility to read the updated state before continuing.
 
-Human `Mark done` is explicitly recorded as a verification override. It must not be interpreted as proof that a configured automated verification command ran successfully.
+Human `Mark done` is explicitly recorded as `completion.verification.result: "human-override"`. It must not be interpreted as proof that a configured automated verification command ran successfully.
+
+## Observer search and derived signals
+
+The observer provides task search across IDs, titles, specs, notes, workstreams, paths, origins, and linked requirement IDs.
+
+The following are derived UI signals and should not be manually stored as task fields:
+
+- dependency wave;
+- Ready / Waiting / Needs human state;
+- active requirement coverage;
+- potential edit-scope collisions;
+- search results;
+- recommended next task.
 
 ## State validation expectations
 
@@ -446,17 +528,21 @@ At minimum ensure:
 - every task has string-array `notes`;
 - dependencies reference real IDs and the DAG is acyclic;
 - requirement/decision origins are valid;
+- optional task origin is `user`, `repo`, or `agent`;
+- optional `requirementIds` is a string array containing real requirement IDs;
 - adoption gaps have valid dispositions and task references;
 - optional `affectedPaths` is a string array;
 - optional verification command is a non-empty string;
-- optional completion metadata has valid string fields;
+- optional completion metadata has valid fields;
+- structured completion verification uses a valid result value;
+- a done task does not carry `completion.verification.result: "failed"`;
 - optional human approval has `required: true` and a valid status.
 
 The observer performs defensive validation, but agents should avoid writing invalid state in the first place.
 
 ## Human authority
 
-The user remains authoritative. Explicit user instructions may reprioritize, skip, block, approve, reject, reopen, redefine, add, remove, defer, or accept work.
+The user remains authoritative. Explicit user instructions may reprioritize, skip, block, approve, reject, reopen, redefine, add, remove, defer, accept, or commit work.
 
 Persist those decisions in `state.js` so the repository reflects them instead of relying on chat history.
 
