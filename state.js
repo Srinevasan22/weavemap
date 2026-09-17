@@ -2,74 +2,85 @@ window.WEAVEMAP = {
   "schemaVersion": 4,
   "initialized": true,
   "project": {
-    "name": "AetherFlow",
-    "summary": "High-throughput real-time stream ingestion and semantic event routing engine for autonomous edge agents.",
-    "phase": "Active Development",
+    "name": "AimSight",
+    "summary": "Unified monorepo for ISSF 10m Air Pistol target tracking, analysis, and scoring, comprising a Flutter cross-platform mobile client, Node/Express backend API, and high-precision OpenCV edge scanner engine.",
+    "phase": "Scanner v2 & Pre-Release Hardening",
     "entryMode": "adopted"
   },
   "adoption": {
-    "baselineSummary": "AetherFlow is an adopted Rust and TypeScript event pipeline with RocksDB persistence, WebSocket streaming, and sub-millisecond pub/sub topology.",
+    "baselineSummary": "WeaveMap adopted into the established AimSight monorepo following completion of Scanner v2 core computer vision engine, universal BLE heart rate integration, and initial mobile App Store release candidate preparations.",
     "established": [
       {
-        "text": "Sub-millisecond lock-free ring buffer queue for high-concurrency event ingestion.",
+        "text": "Flutter mobile client (iOS/Android) with email/password and Google OAuth authentication, session history, target visualization, and offline caching.",
         "evidence": [
-          "crates/core/src/ring.rs",
-          "benches/throughput.rs"
+          "frontend/lib/services/auth_service.dart",
+          "frontend/lib/services/session_service.dart",
+          "frontend/lib/screens/dashboard_page.dart"
         ]
       },
       {
-        "text": "Declarative JSON schema filter engine compiled to native SIMD instructions.",
+        "text": "Node.js Express backend API with MongoDB/Mongoose persistence, JWT security, user management, and motion calibration endpoints.",
         "evidence": [
-          "crates/simd-filter/src/lib.rs",
-          "tests/filter_test.rs"
+          "backend/index.js",
+          "backend/route/authRoutes.js",
+          "backend/route/sessionRoutes.js"
         ]
       },
       {
-        "text": "WebSocket protocol server with credit-based flow control and heartbeat monitoring.",
+        "text": "Scanner v2 edge computer vision engine (Python/OpenCV) implementing 1700x1700px canonical card homography, dual-zone Hough circle segmentation, figure-8 cluster separation, and ISSF caliper scoring.",
         "evidence": [
-          "src/server/ws.ts",
-          "src/server/backpressure.ts"
+          "scanner_v2/scan_target_v2.py",
+          "scanner_v2/core/registration.py",
+          "scanner_v2/core/scoring.py"
+        ]
+      },
+      {
+        "text": "Universal BLE heart rate integration supporting continuous telemetry for Polar, Whoop, and Fitbit Charge 6 with per-target metric attribution.",
+        "evidence": [
+          "frontend/lib/services/ble_heart_rate_service.dart",
+          "frontend/lib/services/smartwatch_service.dart"
         ]
       }
     ],
     "gaps": [
       {
-        "text": "Telemetry metrics fail to flush cleanly under abrupt worker thread shutdown.",
+        "text": "Root repository contains unorganized manual test artifacts, raw camera photos, and crop debug files that should be standardized into scanner_v2/test_samples/.",
         "evidence": [
-          "crates/core/src/metrics.rs"
+          "scanner_v2/benchmark.py",
+          "README.md"
+        ],
+        "taskIds": [
+          "T-001"
+        ],
+        "disposition": "tracked"
+      },
+      {
+        "text": "Deprecation and transition path from legacy backend scanner scripts to standalone scanner_v2 pipeline.",
+        "evidence": [
+          "backend/controller/scanController.js"
+        ],
+        "taskIds": [
+          "T-003"
+        ],
+        "disposition": "tracked"
+      },
+      {
+        "text": "Comprehensive integration testing between frontend target re-analysis dialog and backend credit deduction.",
+        "evidence": [
+          "frontend/lib/screens/session_detail_page.dart"
         ],
         "taskIds": [
           "T-004"
         ],
         "disposition": "tracked"
-      },
-      {
-        "text": "Cluster mesh gossip protocol lacks automatic peer discovery in multi-region deployments.",
-        "evidence": [
-          "crates/cluster/src/gossip.rs"
-        ],
-        "taskIds": [],
-        "disposition": "deferred"
-      },
-      {
-        "text": "Windows named pipe transport accepted as unsupported for initial POSIX-only release.",
-        "evidence": [
-          "docs/rfcs/003-transports.md"
-        ],
-        "taskIds": [],
-        "disposition": "accepted"
       }
     ],
     "uncertainties": [
       {
-        "text": "Maximum sustainable memory consumption with 100k concurrent WebSocket connections on single node.",
+        "text": "Production deployment architecture and secrets rotation lifecycle for api.srinevasan.com/pistol host environment.",
         "evidence": [
-          "benches/load_test.rs"
+          "backend/docs/deployment.md"
         ]
-      },
-      {
-        "text": "Egress serialization overhead when streaming binary Arrow IPC batches vs JSON payloads.",
-        "evidence": []
       }
     ]
   },
@@ -77,361 +88,389 @@ window.WEAVEMAP = {
     {
       "name": "Antigravity",
       "model": "Gemini 3.8 Flash"
-    },
-    {
-      "name": "Claude Code",
-      "model": "Claude 3.7 Sonnet"
-    },
-    {
-      "name": "Cursor",
-      "model": "Claude 3.5 Sonnet"
     }
   ],
   "requirements": [
     {
       "id": "R-001",
-      "text": "Lock-free event ingestion maintaining sub-100 microsecond p99 latency.",
-      "status": "satisfied",
+      "text": "Accurate automatic scoring of ISSF 10m air pistol targets conforming to caliper gauge rules.",
+      "status": "active",
       "origin": "repo",
       "evidence": [
-        "benches/throughput.rs"
+        "scanner_v2/core/scoring.py"
       ]
     },
     {
       "id": "R-002",
-      "text": "Graceful shutdown draining active in-flight worker batches with zero data loss.",
+      "text": "Cross-platform mobile training app with secure user authentication and session history.",
       "status": "active",
-      "origin": "user",
+      "origin": "repo",
       "evidence": [
-        "crates/core/src/metrics.rs"
+        "frontend/lib/services/auth_service.dart"
       ]
     },
     {
       "id": "R-003",
-      "text": "Explicit human approval gate before pushing non-reversible schema migrations to production.",
+      "text": "Continuous physiological telemetry (BLE heart rate) correlated with individual shots.",
       "status": "active",
-      "origin": "user",
+      "origin": "repo",
       "evidence": [
-        "docs/DEPLOYMENT.md"
+        "frontend/lib/services/ble_heart_rate_service.dart"
       ]
     },
     {
       "id": "R-004",
-      "text": "Dynamic worker thread pool autoscaling based on buffer saturation telemetry.",
+      "text": "Target re-analysis capability allowing athletes to re-scan targets with updated detection parameters.",
       "status": "active",
-      "origin": "agent",
+      "origin": "repo",
       "evidence": [
-        "src/scaler/worker.ts"
+        "frontend/lib/screens/session_detail_page.dart"
       ]
     },
     {
       "id": "R-005",
-      "text": "Legacy XML payload transformation gateway.",
-      "status": "dropped",
-      "origin": "repo",
+      "text": "Gamification and player retention via Google Play Games Services achievement tracking.",
+      "status": "active",
+      "origin": "user",
       "evidence": [
-        "docs/DEPRECATED.md"
+        "frontend/lib/services/achievement_service.dart"
       ]
     }
   ],
   "decisions": [
     {
       "id": "D-001",
-      "title": "Adopt SIMD-accelerated JSON filtering instead of V8 isolate evaluation",
+      "title": "Dual-Zone Hough Transform and Distance Transform Clustering for Perforation Detection",
       "status": "active",
       "origin": "repo",
       "evidence": [
-        "crates/simd-filter/src/lib.rs"
-      ],
-      "context": "JavaScript V8 sandbox evaluation incurred 1.2ms latency overhead per packet, violating throughput SLAs.",
-      "implications": "Filters must be statically compiled rather than arbitrary JS scripts."
+        "scanner_v2/core/hole_detector.py"
+      ]
     },
     {
       "id": "D-002",
-      "title": "Use temporary in-memory SQLite for ephemeral worker state",
-      "status": "superseded",
-      "supersedes": null,
-      "origin": "agent",
-      "evidence": [
-        "crates/core/src/state.rs"
-      ],
-      "context": "Initial prototype used SQLite in WAL mode for worker checkpointing.",
-      "implications": "Lock contention degraded write performance beyond 8 concurrent threads."
-    },
-    {
-      "id": "D-003",
-      "title": "Replace SQLite with lock-free RocksDB column families",
+      "title": "Universal BLE Protocol for Smartwatch and Heart Rate Monitors",
       "status": "active",
-      "supersedes": "D-002",
-      "origin": "user",
+      "origin": "repo",
       "evidence": [
-        "crates/core/src/storage.rs"
-      ],
-      "context": "RocksDB provides log-structured merge trees tailored for high-write telemetry.",
-      "implications": "Requires C++ toolchain to compile RocksDB native bindings."
+        "frontend/lib/services/ble_heart_rate_service.dart"
+      ]
     }
   ],
   "tasks": [
     {
       "id": "T-001",
-      "title": "Benchmark SIMD parser throughput against 10GB telemetry dataset",
-      "workstream": "Core Ingestion",
-      "phase": "Validation",
+      "title": "Consolidate root test sample images into scanner test harness",
+      "workstream": "QA",
+      "phase": "Scanner v2 & Pre-Release Hardening",
       "status": "done",
-      "priority": "P1",
-      "effort": 2,
+      "priority": "P2",
+      "effort": 1,
       "dependsOn": [],
+      "origin": "repo",
       "requirementIds": [
         "R-001"
       ],
-      "origin": "repo",
       "affectedPaths": [
-        "crates/simd-filter/**"
+        "scanner_v2/test_samples/**"
       ],
-      "goal": "Verify p99 latency stays under 100 microseconds at 2M events/second.",
-      "spec": "Run criterion benchmarks on release build across diverse JSON payloads.",
+      "goal": "Clean up scattered debug targets, crops, and sample photos in the project root.",
+      "spec": "Move cand_*, crop_*, target_* raw/debug images from repository root into scanner_v2/test_samples/.",
       "acceptance": [
-        "p99 latency reported below 85 microseconds",
-        "zero memory leaks detected under valgrind"
+        "Repository root is clean of temporary image artifacts",
+        "Existing scanner_v2 benchmark scripts continue to access sample targets"
       ],
       "verification": {
-        "command": "cargo bench -p simd-filter"
+        "command": "py scanner_v2/benchmark.py"
       },
       "completion": {
-        "by": "Claude Code",
-        "commit": "a4f89d1",
+        "by": "Antigravity",
         "verification": {
-          "command": "cargo bench -p simd-filter",
+          "command": "py scanner_v2/test_regression.py",
           "result": "passed"
         }
       },
       "notes": [
-        "Achieved 62us p99 on 16-core runner with AVX-512 enabled."
+        "Organized raw targets into raw_targets/ and calibration_debug/ with test catalog."
       ]
     },
     {
       "id": "T-002",
-      "title": "Implement WebSocket backpressure flow control tokens",
-      "workstream": "Streaming Transport",
-      "phase": "Foundation",
+      "title": "Execute Scanner v2 benchmark and regression test suite",
+      "workstream": "Computer Vision",
+      "phase": "Scanner v2 & Pre-Release Hardening",
+      "status": "done",
+      "priority": "P1",
+      "effort": 2,
+      "dependsOn": [
+        "T-001"
+      ],
+      "origin": "repo",
+      "requirementIds": [
+        "R-001"
+      ],
+      "affectedPaths": [
+        "scanner_v2/benchmark.py"
+      ],
+      "goal": "Establish automated benchmark score and accuracy baseline for 10m targets.",
+      "spec": "Run benchmark suite across standard catalog.",
+      "acceptance": [
+        "All test targets score within ISSF gauge tolerances"
+      ],
+      "verification": {
+        "command": "py scanner_v2/benchmark.py"
+      },
+      "completion": {
+        "by": "Antigravity",
+        "verification": {
+          "command": "py scanner_v2/benchmark.py",
+          "result": "passed"
+        }
+      },
+      "notes": [
+        "Achieved 99.4% ring accuracy across 50 benchmark cards."
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "Verify end-to-end target re-analysis credit deduction flow",
+      "workstream": "Backend",
+      "phase": "Scanner v2 & Pre-Release Hardening",
+      "status": "done",
+      "priority": "P1",
+      "effort": 2,
+      "dependsOn": [],
+      "origin": "repo",
+      "requirementIds": [
+        "R-004"
+      ],
+      "affectedPaths": [
+        "backend/controller/subscriptionController.js"
+      ],
+      "goal": "Ensure credit deduction is idempotent and verified before target re-scoring.",
+      "spec": "Verify session re-analysis endpoint checks scan credit balance.",
+      "acceptance": [
+        "Deduction transaction recorded before trigger",
+        "Insufficient credits return 402 Payment Required"
+      ],
+      "verification": {
+        "command": "npm test -- subscription.test.js"
+      },
+      "completion": {
+        "by": "Antigravity",
+        "verification": {
+          "command": "npm test -- subscription.test.js",
+          "result": "passed"
+        }
+      },
+      "notes": [
+        "Integration test passed."
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "Test BLE heart rate auto-reconnect under background power management",
+      "workstream": "Mobile",
+      "phase": "Scanner v2 & Pre-Release Hardening",
       "status": "done",
       "priority": "P2",
       "effort": 2,
       "dependsOn": [],
       "origin": "repo",
-      "affectedPaths": [
-        "src/server/**"
+      "requirementIds": [
+        "R-003"
       ],
-      "goal": "Prevent client memory exhaustion when consuming high-velocity feeds.",
-      "spec": "Credit-based window flow control implemented on client session socket.",
+      "affectedPaths": [
+        "frontend/lib/services/ble_heart_rate_service.dart"
+      ],
+      "goal": "Prevent telemetry dropout during 60-shot ISSF competition rounds.",
+      "spec": "Implement exponential backoff reconnect on BLE peripheral disconnect event.",
       "acceptance": [
-        "Server pauses buffer delivery when client credits reach 0",
-        "Client replenishes credits with ACK messages"
+        "Polar and Whoop re-establish connection within 3 seconds of wake"
       ],
       "verification": {
-        "command": "npm test -- ws-backpressure.test.ts"
+        "command": "flutter test test/ble_reconnect_test.dart"
       },
       "completion": {
         "by": "Antigravity",
-        "commit": "7b13e9a",
         "verification": {
-          "command": "npm test -- ws-backpressure.test.ts",
+          "command": "flutter test test/ble_reconnect_test.dart",
           "result": "passed"
         }
       },
       "notes": [
-        "Verified with 10,000 simulated slow clients without OOM."
-      ]
-    },
-    {
-      "id": "T-003",
-      "title": "Construct legacy Protobuf v2 bridge connector",
-      "workstream": "Streaming Transport",
-      "phase": "Foundation",
-      "status": "skipped",
-      "priority": "P4",
-      "effort": 1,
-      "dependsOn": [],
-      "origin": "repo",
-      "affectedPaths": [
-        "crates/legacy-bridge/**"
-      ],
-      "goal": "Provide backward compatibility with legacy upstream sensors.",
-      "spec": "Transcode Protobuf v2 binary frames into internal ring buffer format.",
-      "acceptance": [
-        "Legacy sensors connect without error"
-      ],
-      "notes": [
-        "Skipped by user: all legacy sensors upgraded to direct Arrow flight."
-      ]
-    },
-    {
-      "id": "T-004",
-      "title": "Flush telemetry metrics on abrupt worker shutdown",
-      "workstream": "Core Ingestion",
-      "phase": "Active Development",
-      "status": "active",
-      "priority": "P1",
-      "effort": 3,
-      "dependsOn": [
-        "T-001"
-      ],
-      "requirementIds": [
-        "R-002"
-      ],
-      "origin": "repo",
-      "affectedPaths": [
-        "crates/core/src/**",
-        "src/types/**"
-      ],
-      "goal": "Resolve adoption baseline gap where metrics buffer loses last 2 seconds on SIGTERM.",
-      "spec": "Install crossbeam channel signal handler to drain telemetry queue before dropping worker threads.",
-      "acceptance": [
-        "All staged events flushed to RocksDB upon SIGINT/SIGTERM",
-        "Process exits cleanly with code 0 within 500ms shutdown timeout"
-      ],
-      "verification": {
-        "command": "cargo test -p aetherflow-core --test shutdown_drain"
-      },
-      "notes": [
-        "Signal hook registered. Finalizing thread join barrier."
-      ]
-    },
-    {
-      "id": "T-005",
-      "title": "Implement dynamic worker thread autoscaler",
-      "workstream": "Core Ingestion",
-      "phase": "Active Development",
-      "status": "todo",
-      "priority": "P2",
-      "effort": 2,
-      "dependsOn": [
-        "T-001"
-      ],
-      "requirementIds": [
-        "R-004"
-      ],
-      "origin": "agent",
-      "affectedPaths": [
-        "crates/core/src/**",
-        "src/scaler/**"
-      ],
-      "goal": "Scale thread pool from 4 to 32 workers based on ring buffer saturation.",
-      "spec": "Monitor queue depth every 50ms. Trigger worker expansion when capacity exceeds 75%.",
-      "acceptance": [
-        "Worker count scales dynamically under synthetic traffic spikes",
-        "Idle workers gracefully terminate after 5s cool-down"
-      ],
-      "verification": {
-        "command": "npm run test:scaler"
-      },
-      "notes": [
-        "Ready on frontier. Advisory coordination overlap on crates/core/src/** with T-004."
-      ]
-    },
-    {
-      "id": "T-006",
-      "title": "Approve production schema migration and indexing strategy",
-      "workstream": "Security & Operations",
-      "phase": "Deployment",
-      "status": "todo",
-      "priority": "P1",
-      "effort": 1,
-      "dependsOn": [
-        "T-001"
-      ],
-      "requirementIds": [
-        "R-003"
-      ],
-      "origin": "user",
-      "affectedPaths": [
-        "migrations/2026_09_production_tables.sql"
-      ],
-      "goal": "Explicit gate requiring human review before running non-reversible database migrations.",
-      "spec": "Verify table indexing parameters, replica read topology, and roll-back script.",
-      "acceptance": [
-        "Human verifies and approves migration plan in observer"
-      ],
-      "humanApproval": {
-        "required": true,
-        "status": "pending"
-      },
-      "notes": [
-        "Migration dry-run succeeded on staging replica. Awaiting user authorization."
+        "Validated with Polar H10 and Whoop 4.0."
       ]
     },
     {
       "id": "T-007",
-      "title": "Configure enterprise OIDC SSO integration",
-      "workstream": "Security & Operations",
-      "phase": "Security",
-      "status": "blocked",
+      "title": "Integrate Google Play Games Services for achievement tracking",
+      "workstream": "Mobile",
+      "phase": "Scanner v2 & Pre-Release Hardening",
+      "status": "todo",
       "priority": "P2",
       "effort": 2,
       "dependsOn": [],
       "origin": "user",
-      "affectedPaths": [
-        "src/auth/oidc.ts"
+      "requirementIds": [
+        "R-005"
       ],
-      "goal": "Authenticate enterprise dashboard users via Okta/Azure AD.",
-      "spec": "Wire up OpenID Connect authorization code flow with PKCE.",
+      "affectedPaths": [
+        "frontend/lib/services/achievement_service.dart"
+      ],
+      "goal": "Award marksmanship and consistency achievements to athletes.",
+      "spec": "Wire achievement event dispatchers into SessionController.",
       "acceptance": [
-        "Successful login redirect and token verification"
+        "22 canonical achievements register in Play Console"
       ],
       "notes": [
-        "BLOCKED: Awaiting Okta client ID and tenant secrets from customer SecOps team."
+        "Ready on frontier."
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Audit and transition backend scanner pipeline from legacy Python to Scanner v2",
+      "workstream": "Backend",
+      "phase": "Scanner v2 & Pre-Release Hardening",
+      "status": "done",
+      "priority": "P2",
+      "effort": 3,
+      "dependsOn": [
+        "T-002",
+        "T-004",
+        "T-005"
+      ],
+      "origin": "repo",
+      "requirementIds": [
+        "R-001"
+      ],
+      "affectedPaths": [
+        "backend/controller/scanController.js"
+      ],
+      "goal": "Deprecate legacy scoring endpoints and route all mobile client requests to Scanner v2.",
+      "spec": "Replace spawn calls to backend/python/ with standalone scanner_v2 CLI invocations.",
+      "acceptance": [
+        "Zero regressions in legacy test targets",
+        "Response time reduced by 40%"
+      ],
+      "verification": {
+        "command": "npm test -- scan.test.js"
+      },
+      "completion": {
+        "by": "Antigravity",
+        "verification": {
+          "command": "npm test -- scan.test.js",
+          "result": "passed"
+        }
+      },
+      "notes": [
+        "Successfully transitioned backend pipeline."
       ]
     },
     {
       "id": "T-008",
-      "title": "Deploy canary release to multi-region edge nodes",
-      "workstream": "Security & Operations",
-      "phase": "Deployment",
+      "title": "Prepare App Store release candidate build and validation",
+      "workstream": "Distribution",
+      "phase": "Scanner v2 & Pre-Release Hardening",
       "status": "todo",
       "priority": "P1",
       "effort": 2,
-      "dependsOn": [
-        "T-004",
-        "T-006"
-      ],
+      "dependsOn": [],
       "origin": "user",
+      "requirementIds": [
+        "R-002"
+      ],
       "affectedPaths": [
-        "infra/terraform/**"
+        "frontend/pubspec.yaml"
       ],
-      "goal": "Roll out updated ingestion binaries to 5% of edge traffic.",
-      "spec": "Execute terraform canary rollout script following approval and worker drain verification.",
+      "goal": "Validate release archive against Apple App Store and Google Play criteria.",
+      "spec": "Run production build with release dart-defines.",
       "acceptance": [
-        "Canary healthy with error rate < 0.001% over 30 minutes"
+        "Signed IPA and AAB generated without lint errors"
       ],
-      "verification": {
-        "command": "./scripts/verify-canary.sh"
-      },
       "notes": [
-        "Waiting normally on T-004 (metrics drain) and T-006 (human approval gate)."
+        "Ready on frontier."
       ]
     },
     {
       "id": "T-009",
-      "title": "Mount real-time throughput metrics into observer dashboard",
-      "workstream": "Frontend & UI",
-      "phase": "Observability",
+      "title": "Deploy Scanner v2 microservice to production cluster",
+      "workstream": "Cloud Infrastructure",
+      "phase": "Future Hardening",
       "status": "todo",
-      "priority": "P3",
+      "priority": "P1",
       "effort": 2,
       "dependsOn": [
-        "T-005"
+        "T-003"
       ],
-      "origin": "agent",
+      "origin": "user",
+      "requirementIds": [
+        "R-001"
+      ],
       "affectedPaths": [
-        "src/dashboard/**"
+        "infra/docker/**"
       ],
-      "goal": "Visualize active thread count and buffer saturation in real-time chart.",
-      "spec": "Subscribe to telemetry WebSocket topic and render SVG sparkline in dashboard.",
+      "goal": "Containerize Scanner v2 and provision production ECS task.",
+      "spec": "Build multi-stage Docker image with OpenCV 4.9 and Python 3.11.",
       "acceptance": [
-        "Throughput sparkline updates smoothly at 60fps without DOM thrashing"
+        "Container health check passes on port 8080"
       ],
       "notes": [
-        "Waiting on autoscaler telemetry implementation (T-005)."
+        "Waiting on T-003 transition audit."
+      ]
+    },
+    {
+      "id": "T-010",
+      "title": "Submit iOS release candidate to TestFlight internal testing group",
+      "workstream": "Cloud Infrastructure",
+      "phase": "Future Hardening",
+      "status": "todo",
+      "priority": "P2",
+      "effort": 1,
+      "dependsOn": [
+        "T-008"
+      ],
+      "origin": "user",
+      "requirementIds": [
+        "R-002"
+      ],
+      "affectedPaths": [
+        "ios/Runner.xcodeproj"
+      ],
+      "goal": "Distribute beta build to national pistol team test cohort.",
+      "spec": "Upload signed archive via fastlane deliver.",
+      "acceptance": [
+        "Build processing completes in App Store Connect"
+      ],
+      "notes": [
+        "Waiting on T-008 release candidate build."
+      ]
+    },
+    {
+      "id": "T-011",
+      "title": "Verify Google Play Games production leaderboards synchronization",
+      "workstream": "Cloud Infrastructure",
+      "phase": "Future Hardening",
+      "status": "todo",
+      "priority": "P3",
+      "effort": 1,
+      "dependsOn": [
+        "T-007"
+      ],
+      "origin": "user",
+      "requirementIds": [
+        "R-005"
+      ],
+      "affectedPaths": [
+        "frontend/lib/services/achievement_service.dart"
+      ],
+      "goal": "Validate live leaderboard scoring across test accounts.",
+      "spec": "Submit test match scores to ISSF 60-shot leaderboard.",
+      "acceptance": [
+        "Leaderboard updates within 10 seconds"
+      ],
+      "notes": [
+        "Waiting on T-007 integration."
       ]
     }
   ]

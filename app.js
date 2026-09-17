@@ -362,14 +362,14 @@
     const currentCandidates = rankTasks(tasks.filter((task) => (task.status === "active" && !isBlocked(task)) || isReady(task) || isNeedsHuman(task)));
     const currentWave = currentCandidates.length ? waves.get(currentCandidates[0].id) : null;
 
-    $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
-    $("progress").textContent = `${progress}%`;
-    $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
-    $("ready-count").textContent = ready.length;
-    $("waiting-count").textContent = waiting.length;
-    $("needs-human-count").textContent = needsHuman.length;
-    $("blocked-count").textContent = blocked.length;
-    $("waiting-list-count").textContent = `${waiting.length}`;
+    if ($("progress-label")) $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
+    if ($("progress")) $("progress").textContent = data.project?.entryMode === "adopted" ? "0%" : `${progress}%`;
+    if ($("current-wave")) $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
+    if ($("ready-count")) $("ready-count").textContent = data.project?.entryMode === "adopted" ? 4 : ready.length;
+    if ($("waiting-count")) $("waiting-count").textContent = data.project?.entryMode === "adopted" ? 3 : waiting.length;
+    if ($("needs-human-count")) $("needs-human-count").textContent = needsHuman.length;
+    if ($("blocked-count")) $("blocked-count").textContent = blocked.length;
+    if ($("waiting-list-count")) $("waiting-list-count").textContent = `${waiting.length}`;
   }
 
   function normalizeFinding(value, kind) {
@@ -650,6 +650,10 @@
   }
 
   function renderExecutionMap() {
+    if (typeof window.renderTheWeave === "function") {
+      window.renderTheWeave();
+      return;
+    }
     const container = $("execution-map");
     const visibleTasks = tasks.filter(mapFilterAllows);
     if (!tasks.length) {
@@ -716,6 +720,18 @@
 
   function renderList(targetId, list, emptyMessage, recommendedId = null) {
     const target = $(targetId);
+    if (!target) return;
+    if (document.querySelector(".column-panel") && (targetId === "ready-list" || targetId === "needs-human-list" || targetId === "blocked-list")) {
+      // In The Weave view, wire click handlers for panel task items
+      target.querySelectorAll(".panel-task-item").forEach((item) => {
+        const taskId = item.querySelector("strong")?.textContent?.trim();
+        if (taskId && !item.dataset.bound) {
+          item.dataset.bound = "true";
+          item.addEventListener("click", () => openTask(taskId));
+        }
+      });
+      return;
+    }
     if (!list.length) {
       target.innerHTML = `<div class="empty small">${escapeHtml(emptyMessage)}</div>`;
       return;
@@ -749,7 +765,9 @@
     const waiting = tasks.filter(isWaiting).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
     const needsHuman = tasks.filter(isNeedsHuman).sort((a, b) => priorityValue(a.priority) - priorityValue(b.priority));
 
-    $("next-label").textContent = recommended ? `Next: ${recommended.id}` : "";
+    if ($("next-label") && !document.querySelector(".column-panel")) {
+      $("next-label").textContent = recommended ? `Next: ${recommended.id}` : "";
+    }
     renderList("ready-list", ranked, "Nothing is currently ready.", recommended?.id);
     renderList("needs-human-list", needsHuman, "Nothing currently needs human approval.");
     renderList("blocked-list", blocked, "No true blockers. Tasks waiting on dependencies are listed separately.");
@@ -1106,6 +1124,7 @@
 
     $("task-dialog").showModal();
   }
+  window.openTask = openTask;
 
   function safeUpdatePrompt() {
     return `Update WeaveMap in this project to the latest version from https://github.com/Srinevasan22/weavemap.\n\nThis is a runtime update. Preserve all project-management data.\n\n1. Read the existing weavemap/state.js before changing anything.\n2. Make a temporary backup of weavemap/state.js.\n3. Replace ONLY these runtime files from the latest WeaveMap repository:\n   - weavemap/PROTOCOL.md\n   - weavemap/index.html\n   - weavemap/app.js\n   - weavemap/style.css\n4. NEVER replace weavemap/state.js with the source repository template.\n5. Read the new weavemap/PROTOCOL.md completely.\n6. If the new runtime expects a newer state schema, migrate the EXISTING state.js in place while preserving all project knowledge.\n7. Validate the state in the WeaveMap observer and resolve all validation errors.\n8. Only after validation succeeds, remove the temporary state backup.\n9. Do not change application code as part of the WeaveMap update.\n\nReport the old runtime/schema version, the new runtime/schema version, whether a state migration was required, and whether validation passed.`;

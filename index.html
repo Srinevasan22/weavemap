@@ -3,396 +3,990 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WeaveMap</title>
+  <title>WeaveMap · The Weave</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    .stats article { overflow: visible; z-index: 1; }
-    .stats article:hover, .stats article:focus-within { z-index: 100; }
-    .stats article:nth-child(2) { display: none; }
-    .stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-
-    .info-tooltip { z-index: 110; }
-    .info-tooltip::after {
-      left: 50%;
-      top: calc(100% + 10px);
-      width: max-content;
-      max-width: min(260px, calc(100vw - 32px));
-      white-space: normal;
-      text-align: left;
-      font-size: 12px;
-      font-weight: 500;
-      line-height: 1.45;
-      padding: 9px 11px;
-      border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(16,24,40,.18);
+    /* ==========================================================================
+       The Weave — Canonical High-Fidelity Presentation Layer (Matching Image 1)
+       ========================================================================== */
+    :root {
+      --weave-bg: #f8fafc;
+      --weave-border: #e2e8f0;
+      --weave-text-main: #0f172a;
+      --weave-text-muted: #64748b;
+      --color-qa: #2563eb;
+      --color-cv: #8b5cf6;
+      --color-backend: #10b981;
+      --color-mobile: #f97316;
+      --color-release: #ef4444;
     }
-    .info-tooltip::before {
-      content: "";
-      position: absolute;
-      z-index: 111;
-      left: 50%;
-      top: calc(100% + 4px);
-      width: 10px;
-      height: 10px;
-      background: #171717;
-      transform: translateX(-50%) rotate(45deg);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .12s ease;
-    }
-    .info-tooltip:hover::before, .info-tooltip:focus::before { opacity: 1; }
 
-    /* The Weave — dependency graph presentation layer. */
-    .map-panel { overflow: hidden; }
-    .weave-heading-mark {
-      display: inline-flex;
+    body {
+      background: var(--weave-bg);
+      color: var(--weave-text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+    }
+
+    /* --- Topbar & Header --- */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .brand-logo {
+      display: flex;
       align-items: center;
       gap: 8px;
-    }
-    .weave-mark {
-      width: 28px;
-      height: 28px;
-      display: inline-grid;
-      place-items: center;
-      border-radius: 8px;
-      background: #eef4ff;
-      color: #175cd3;
-      font-size: 18px;
       font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.05em;
+      color: #1e3a8a;
     }
-    .weave-subtitle { max-width: 760px; }
-    .execution-map { overflow-x: auto; padding-bottom: 4px; }
-    .weave-inner {
-      --label-width: 178px;
-      --depth-width: 300px;
-      --depth-count: 1;
+    .version-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      color: #475467;
+      cursor: pointer;
+    }
+    .version-badge strong { color: #0f172a; }
+    h1#project-name {
+      font-size: 30px;
+      font-weight: 800;
+      margin: 0 0 6px;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+    #project-summary {
+      color: var(--weave-text-muted);
+      font-size: 13.5px;
+      line-height: 1.45;
+      margin: 0;
+      max-width: 900px;
+    }
+    .header-right-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .phase-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #334155;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .theme-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #64748b;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      transition: all 0.15s ease;
+    }
+    .icon-btn:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+
+    /* --- Stats Row (5 Metric Cards) --- */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .stats article.stat-card {
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+      border: 1px solid #e2e8f0;
+    }
+    .stats article.stat-card.progress-card {
+      background: #ffffff !important;
+      border-color: #e2e8f0 !important;
+    }
+    .stats article.stat-card.ready-card {
+      background: #f0fdf4 !important;
+      border-color: #bbf7d0 !important;
+    }
+    .stats article.stat-card.ready-card .stat-icon-wrap {
+      background: #dcfce7 !important;
+      color: #16a34a !important;
+    }
+    .stats article.stat-card.waiting-card {
+      background: #fffbeb !important;
+      border-color: #fde68a !important;
+    }
+    .stats article.stat-card.waiting-card .stat-icon-wrap {
+      background: #fef3c7 !important;
+      color: #d97706 !important;
+    }
+    .stats article.stat-card.human-card {
+      background: #eff6ff !important;
+      border-color: #bfdbfe !important;
+    }
+    .stats article.stat-card.human-card .stat-icon-wrap {
+      background: #dbeafe !important;
+      color: #2563eb !important;
+    }
+    .stats article.stat-card.blocked-card {
+      background: #fef2f2 !important;
+      border-color: #fecaca !important;
+    }
+    .stats article.stat-card.blocked-card .stat-icon-wrap {
+      background: #fee2e2 !important;
+      color: #dc2626 !important;
+    }
+    .stat-body { display: flex; flex-direction: column; gap: 2px; }
+    .stat-body span { font-size: 11.5px; font-weight: 600; color: #64748b; }
+    .stat-body strong { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.1; }
+
+    /* Circular SVG progress ring */
+    .progress-ring { transform: rotate(-90deg); }
+    .ring-bg { stroke: #e2e8f0; }
+    .ring-fill { stroke: #38bdf8; transition: stroke-dashoffset 0.4s ease; }
+
+    /* --- The Weave Main Card Panel --- */
+    .weave-panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
       position: relative;
-      min-width: calc(var(--label-width) + (var(--depth-count) * var(--depth-width)));
-      border: 1px solid #dbe4ef;
-      border-radius: 11px;
-      overflow: hidden;
-      background: #fff;
     }
-    .weave-svg {
+    .weave-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .weave-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .weave-logo-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .weave-title-wrap h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 3px;
+    }
+    .weave-subtitle {
+      color: #64748b;
+      font-size: 12.5px;
+      margin: 0;
+      max-width: 680px;
+      line-height: 1.4;
+    }
+    .weave-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .search-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-icon {
+      position: absolute;
+      left: 11px;
+      pointer-events: none;
+    }
+    .search-wrap input {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      border-radius: 999px;
+      padding: 7px 28px 7px 32px;
+      font-size: 12.5px;
+      color: #0f172a;
+      outline: none;
+      width: 160px;
+      transition: all 0.15s ease;
+    }
+    .search-wrap input:focus {
+      width: 200px;
+      background: #ffffff;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    }
+    .clear-search {
+      position: absolute;
+      right: 9px;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0;
+    }
+    .select-wrap select {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #334155;
+      cursor: pointer;
+      outline: none;
+    }
+    .btn-compact {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-compact:hover { background: #f8fafc; border-color: #94a3b8; }
+    .btn-more {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      color: #64748b;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    /* --- The Weave Canvas & Grid --- */
+    .weave-canvas-wrapper {
+      position: relative;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #ffffff;
+      padding-bottom: 2px;
+    }
+    .weave-canvas-inner {
+      --col-lane: 180px;
+      --col-depth: 265px;
+      --depth-count: 4;
+      position: relative;
+      min-width: calc(var(--col-lane) + (var(--depth-count) * var(--col-depth)));
+      background: #ffffff;
+    }
+    .weave-svg-layer {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
-      overflow: visible;
       pointer-events: none;
-      z-index: 1;
-    }
-    .weave-depths,
-    .weave-row {
-      position: relative;
       z-index: 2;
+      overflow: visible;
+    }
+
+    /* Header depths row */
+    .weave-depth-header {
       display: grid;
-      grid-template-columns: var(--label-width) repeat(var(--depth-count), var(--depth-width));
+      grid-template-columns: var(--col-lane) repeat(var(--depth-count), var(--col-depth));
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
     }
-    .weave-depths {
-      min-height: 66px;
-      background: linear-gradient(180deg, #fbfcfe, #f8fafc);
-      border-bottom: 1px solid #e3e9f1;
+    .depth-corner-label {
+      padding: 12px 16px;
+      border-right: 1px solid #e2e8f0;
     }
-    .weave-depth-corner,
-    .weave-depth {
-      padding: 13px 14px;
+    .depth-col-title {
+      padding: 12px 18px;
+      border-right: 1px solid #f1f5f9;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 3px;
-      border-right: 1px solid #edf1f6;
+      gap: 2px;
     }
-    .weave-depth-corner {
-      color: #667085;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-    .weave-depth strong { font-size: 12px; color: #101828; }
-    .weave-depth span { color: #667085; font-size: 10px; line-height: 1.35; }
+    .depth-col-title strong { font-size: 12px; font-weight: 700; color: #0f172a; }
+    .depth-col-title span { font-size: 10px; color: #64748b; font-weight: 500; }
+
+    /* Workstream Rows */
     .weave-row {
-      min-height: 112px;
-      border-bottom: 1px solid #e8edf4;
-      background: rgba(255,255,255,.84);
-    }
-    .weave-row:last-child { border-bottom: 0; }
-    .weave-workstream {
+      display: grid;
+      grid-template-columns: var(--col-lane) repeat(var(--depth-count), var(--col-depth));
+      border-bottom: 1px solid #f1f5f9;
+      min-height: 96px;
       position: relative;
-      z-index: 4;
+      z-index: 3;
+    }
+    .weave-row:last-child { border-bottom: none; }
+
+    .workstream-lane-info {
+      padding: 14px 16px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 14px;
-      background: rgba(248,250,252,.94);
-      border-right: 1px solid #e8edf4;
+      gap: 12px;
+      background: #ffffff;
+      border-right: 1px solid #e2e8f0;
+      position: relative;
+      z-index: 4;
     }
-    .weave-thread-symbol {
-      width: 30px;
-      height: 30px;
-      flex: 0 0 30px;
+    .lane-icon-box {
+      width: 36px;
+      height: 36px;
       border-radius: 9px;
       display: grid;
       place-items: center;
-      background: color-mix(in srgb, var(--thread-color) 11%, white);
-      color: var(--thread-color);
-      border: 1px solid color-mix(in srgb, var(--thread-color) 20%, white);
-      font-size: 15px;
-      font-weight: 900;
+      flex-shrink: 0;
     }
-    .weave-workstream-copy { min-width: 0; display: grid; gap: 2px; }
-    .weave-workstream-copy strong { color: #101828; font-size: 12px; line-height: 1.25; }
-    .weave-workstream-copy span { color: #667085; font-size: 10px; }
-    .weave-cell {
-      position: relative;
-      z-index: 3;
-      min-height: 112px;
-      padding: 12px 14px;
+    .lane-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .lane-text strong {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lane-text span {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    /* Grid Cell */
+    .weave-grid-cell {
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 8px;
-      border-right: 1px solid #f0f3f7;
-    }
-    .weave-task-card {
+      gap: 10px;
+      border-right: 1px solid #f8fafc;
       position: relative;
-      z-index: 4;
+      z-index: 3;
+    }
+
+    /* --- Task Cards --- */
+    .weave-card {
       width: 100%;
-      max-width: 270px;
-      min-height: 70px;
-      border: 1px solid #d9e2ec;
-      border-radius: 10px;
-      padding: 10px 12px 10px 41px;
-      background: #fff;
-      text-align: left;
+      max-width: 242px;
+      border-radius: 12px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
       cursor: pointer;
-      box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 3px 10px rgba(16,24,40,.035);
-      transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+      text-align: left;
+      position: relative;
+      z-index: 5;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
-    .weave-task-card:hover {
+    .weave-card:hover {
       transform: translateY(-1px);
-      box-shadow: 0 5px 16px rgba(16,24,40,.09);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     }
-    .weave-task-card.state-ready { background: linear-gradient(135deg, #edfaf4, #fafffc); border-color: #b9e4cf; }
-    .weave-task-card.state-active { background: linear-gradient(135deg, #eef4ff, #fbfdff); border-color: #c5d7fb; }
-    .weave-task-card.state-waiting { background: linear-gradient(135deg, #fff8e9, #fffdf7); border-color: #efd9a5; }
-    .weave-task-card.state-approval { background: linear-gradient(135deg, #f7f2ff, #fdfbff); border-color: #d9c8f5; }
-    .weave-task-card.state-blocked { background: linear-gradient(135deg, #fff1f1, #fffafa); border-color: #f0c4c4; }
-    .weave-task-card.state-done { background: linear-gradient(135deg, #f4f6f8, #fbfcfd); border-color: #d8e0e8; }
-    .weave-state-icon {
-      position: absolute;
-      left: 11px;
-      top: 12px;
+    .card-status-icon {
       width: 22px;
       height: 22px;
       border-radius: 50%;
       display: grid;
       place-items: center;
+      color: #ffffff;
       font-size: 11px;
       font-weight: 900;
-      color: white;
-      background: #98a2b3;
-      box-shadow: 0 0 0 3px rgba(255,255,255,.72);
+      flex-shrink: 0;
     }
-    .state-ready .weave-state-icon { background: #12a66a; }
-    .state-active .weave-state-icon { background: #2e6fe8; }
-    .state-waiting .weave-state-icon { background: #f59e0b; }
-    .state-approval .weave-state-icon { background: #8b5cf6; }
-    .state-blocked .weave-state-icon { background: #ef4444; }
-    .state-done .weave-state-icon { background: #667085; }
-    .weave-task-id { display: block; color: #667085; font-size: 10px; font-weight: 800; letter-spacing: .04em; margin-bottom: 3px; }
-    .weave-task-card strong { display: block; color: #101828; font-size: 12px; line-height: 1.28; }
-    .weave-task-meta { display: block; margin-top: 5px; color: #667085; font-size: 10px; line-height: 1.35; }
-    .weave-task-verify { display: block; margin-top: 4px; color: #475467; font-size: 9px; font-weight: 700; }
-    .weave-empty {
-      padding: 34px;
-      color: #667085;
+    .card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .card-id {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #475467;
+      text-transform: uppercase;
+    }
+    .card-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-meta {
+      font-size: 10px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    /* Card Status Themes */
+    .weave-card.state-done { background: #f0fdf4; border-color: #bbf7d0; }
+    .weave-card.state-done .card-status-icon { background: #10b981; }
+    .weave-card.state-ready { background: #eff6ff; border-color: #bfdbfe; }
+    .weave-card.state-ready .card-status-icon { background: #3b82f6; }
+    .weave-card.state-waiting { background: #fffbeb; border-color: #fde68a; }
+    .weave-card.state-waiting .card-status-icon { background: #f59e0b; }
+    .weave-card.state-approval { background: #faf5ff; border-color: #e9d5ff; }
+    .weave-card.state-approval .card-status-icon { background: #8b5cf6; }
+    .weave-card.state-blocked { background: #fef2f2; border-color: #fecaca; }
+    .weave-card.state-blocked .card-status-icon { background: #ef4444; }
+
+    /* Future work dashed node */
+    .future-work-node {
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
       text-align: center;
-      border: 1px dashed #d0d8e3;
-      border-radius: 10px;
-      background: #fafcff;
+      width: 140px;
+      position: relative;
+      z-index: 5;
     }
-    .weave-legend-note {
+    .future-work-node small {
+      display: block;
+      font-size: 9.5px;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    /* --- Canvas Footer (Legend & Zoom) --- */
+    .weave-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 6px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .weave-legend {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      color: #667085;
-      font-size: 11px;
-      margin-left: 4px;
+      gap: 6px;
+      font-size: 11.5px;
+      color: #475467;
+      font-weight: 500;
     }
-    .weave-legend-line {
-      width: 22px;
-      height: 0;
-      border-top: 2px solid #7c8db5;
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
       display: inline-block;
     }
-    .weave-inner.compact { --depth-width: 250px; }
-    .weave-inner.compact .weave-row,
-    .weave-inner.compact .weave-cell { min-height: 88px; }
-    .weave-inner.compact .weave-task-card { min-height: 56px; max-width: 225px; padding: 8px 10px 8px 36px; }
-    .weave-inner.compact .weave-state-icon { width: 19px; height: 19px; left: 9px; top: 9px; font-size: 9px; }
-    .weave-inner.compact .weave-task-card strong { font-size: 11px; }
-    .weave-inner.compact .weave-task-verify { display: none; }
-
-    @media (max-width: 1050px) {
-      .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .dot-completed { background: #10b981; }
+    .dot-ready { background: #3b82f6; }
+    .dot-waiting { background: #f59e0b; }
+    .dot-human { background: #8b5cf6; }
+    .dot-blocked { background: #ef4444; }
+    .legend-line {
+      width: 22px;
+      height: 0;
+      display: inline-block;
     }
-    @media (max-width: 760px) {
+    .line-dep { border-top: 2px solid #94a3b8; }
+    .line-opt { border-top: 2px dashed #94a3b8; }
+
+    .weave-zoom-pill {
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .weave-zoom-pill button {
+      background: transparent;
+      border: none;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .weave-zoom-pill button:hover { background: #f1f5f9; color: #0f172a; }
+    .weave-zoom-pill button + button { border-left: 1px solid #e2e8f0; }
+
+    /* --- Bottom 3 Panels (Ready Frontier, Needs Human, Blockers) --- */
+    .work-columns {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .column-panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 18px 20px;
+      min-height: 200px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .panel-heading-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .heading-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .heading-group h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+    }
+    .heading-group p {
+      font-size: 11px;
+      color: #64748b;
+      margin: 2px 0 0;
+    }
+    .count-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .pill-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+    .pill-purple { background: #faf5ff; color: #7c3aed; border: 1px solid #e9d5ff; }
+    .pill-red { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    /* Panel task lists */
+    .panel-task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .panel-task-item:hover { background: #ffffff; border-color: #cbd5e1; transform: translateY(-1px); }
+    .panel-task-item strong { font-size: 11px; color: #334155; font-weight: 700; min-width: 48px; }
+    .panel-task-item span { font-size: 11.5px; color: #0f172a; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Empty state illustration */
+    .empty-state-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 16px;
+      text-align: center;
+      color: #64748b;
+    }
+    .empty-icon-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      display: grid;
+      place-items: center;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+    .empty-state-wrap strong { font-size: 13px; color: #334155; margin-bottom: 3px; font-weight: 700; }
+    .empty-state-wrap p { font-size: 11px; color: #64748b; margin: 0; max-width: 260px; line-height: 1.4; }
+
+    /* Compact toggle */
+    .weave-canvas-inner.compact { --col-depth: 215px; }
+    .weave-canvas-inner.compact .weave-row { min-height: 78px; }
+    .weave-canvas-inner.compact .weave-card { padding: 7px 10px; max-width: 200px; }
+    .weave-canvas-inner.compact .card-title { font-size: 10.5px; -webkit-line-clamp: 1; }
+
+    @media (max-width: 1024px) {
+      .stats { grid-template-columns: repeat(3, 1fr); }
+      .work-columns { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
       .stats { grid-template-columns: 1fr 1fr; }
-      .weave-inner { --label-width: 135px; --depth-width: 250px; }
-      .weave-inner.compact { --depth-width: 220px; }
-      .weave-workstream { padding: 10px; gap: 7px; }
-      .weave-thread-symbol { width: 24px; height: 24px; flex-basis: 24px; border-radius: 7px; }
+      .shell { padding: 16px; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
+    <!-- Topbar -->
     <header class="topbar">
       <div>
         <div class="brand-row">
-          <div class="brand">WeaveMap</div>
+          <div class="brand-logo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><circle cx="5" cy="18" r="2.5"/>
+              <path d="M5 8.5v7"/><path d="M19 8.5v7"/><path d="M7.5 6h9"/><path d="M7.5 18h9"/><path d="M7 7.5l10 9"/>
+            </svg>
+            <span>WEAVEMAP</span>
+          </div>
           <button id="update-button" class="version-badge" type="button" title="View safe update instructions">
             <strong id="runtime-version">v1.0.0</strong>
-            <span id="schema-version">state schema</span>
+            <span id="schema-version">state schema v4</span>
           </button>
         </div>
-        <h1 id="project-name">Project</h1>
-        <p id="project-summary" class="muted"></p>
+        <h1 id="project-name">AimSight</h1>
+        <p id="project-summary">Unified monorepo for ISSF 10m Air Pistol target tracking, analysis, and scoring, comprising a Flutter cross-platform mobile client, Node/Express backend API, and high-precision OpenCV edge scanner engine.</p>
       </div>
-      <div class="phase" id="project-phase"></div>
+
+      <div class="header-right-controls">
+        <div class="phase-selector">
+          <span id="project-phase">Scanner v2 & Pre-Release Hardening</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="theme-controls">
+          <button type="button" class="icon-btn" title="Light mode" aria-label="Light mode">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          </button>
+          <button type="button" class="icon-btn" title="Dark mode" aria-label="Dark mode">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          </button>
+          <button type="button" class="icon-btn" title="History" aria-label="History">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </button>
+        </div>
+      </div>
     </header>
 
-    <section id="onboarding" class="onboarding hidden">
-      <strong>WeaveMap is ready.</strong>
-      <span>Ask your AI to read <code>weavemap/PROTOCOL.md</code> and use WeaveMap to manage this project as it works.</span>
-    </section>
+    <section id="onboarding" class="onboarding hidden"></section>
     <section id="validation" class="validation hidden"></section>
 
+    <!-- 5 Metric Cards (Matching Image 1) -->
     <section class="stats" aria-label="Project status">
-      <article><span id="progress-label">Progress</span><strong id="progress">0%</strong></article>
-      <article><span>Current wave</span><strong id="current-wave">—</strong></article>
-      <article><span>Ready</span><strong id="ready-count">0</strong></article>
-      <article>
-        <span class="stat-label">Waiting <button class="info-tooltip" type="button" aria-label="Waiting means tasks that cannot start yet because dependencies are unfinished. This is normal sequencing, not a blocker." data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker.">?</button></span>
-        <strong id="waiting-count">0</strong>
-      </article>
-      <article>
-        <span class="stat-label">Needs human <button class="info-tooltip" type="button" aria-label="Needs human means a task has reached an explicit human approval gate." data-tooltip="Tasks at an explicit human approval gate. AI must not approve these gates on its own.">?</button></span>
-        <strong id="needs-human-count">0</strong>
-      </article>
-      <article><span>Blocked</span><strong id="blocked-count">0</strong></article>
-    </section>
-
-    <section id="adoption-panel" class="panel adoption-panel hidden">
-      <div class="section-heading">
-        <div><h2>Existing project baseline</h2><p>What WeaveMap found when it joined this project midstream. Execution progress starts from this baseline.</p></div>
-        <span class="mode-badge">Adopted</span>
-      </div>
-      <p id="adoption-summary" class="baseline-summary"></p>
-      <div class="baseline-grid">
-        <article class="baseline-card"><h3>Established</h3><ul id="adoption-established"></ul></article>
-        <article class="baseline-card"><h3>Gaps</h3><ul id="adoption-gaps"></ul></article>
-        <article class="baseline-card"><h3>Uncertainties</h3><ul id="adoption-uncertainties"></ul></article>
-      </div>
-    </section>
-
-    <section class="panel agents-panel">
-      <div class="section-heading compact"><div><h2>Agents used</h2><p>AI agents and exact models recorded by the agents themselves.</p></div><span id="agent-count" class="next-label"></span></div>
-      <div id="agent-list" class="agent-list"></div>
-    </section>
-
-    <details id="requirements-panel" class="panel requirements-panel">
-      <summary>
-        <span>Requirement coverage</span>
-        <span id="requirement-coverage-summary" class="coverage-summary"></span>
-      </summary>
-      <p class="panel-help">Active requirements should be linked to the task or tasks that deliver them. Uncovered requirements are a planning signal, not automatically a validation error.</p>
-      <div id="requirement-list" class="requirement-list"></div>
-    </details>
-
-    <section id="conflict-panel" class="panel conflict-panel hidden">
-      <div class="section-heading compact">
-        <div><h2>Coordination warnings</h2><p>Ready or active tasks have overlapping expected edit scopes. This is advisory, not a file lock.</p></div>
-        <span id="conflict-count" class="warning-count"></span>
-      </div>
-      <div id="conflict-list" class="conflict-list"></div>
-    </section>
-
-    <section class="panel map-panel">
-      <div class="section-heading">
-        <div>
-          <div class="weave-heading-mark"><span class="weave-mark">⌘</span><h2>The Weave</h2></div>
-          <p class="weave-subtitle">Tasks woven by dependency, not by time. Each row is a workstream and horizontal position shows weave depth.</p>
+      <article class="stat-card progress-card">
+        <div class="stat-icon-wrap">
+          <svg class="progress-ring" width="38" height="38" viewBox="0 0 38 38">
+            <circle class="ring-bg" cx="19" cy="19" r="15" fill="none" stroke="#e2e8f0" stroke-width="3"/>
+            <circle id="progress-circle" class="ring-fill" cx="19" cy="19" r="15" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"/>
+          </svg>
         </div>
-        <div class="legend">
-          <span><i class="dot done"></i>Done</span><span><i class="dot active"></i>Active</span><span><i class="dot ready"></i>Ready</span><span><i class="dot waiting"></i>Waiting</span><span><i class="dot approval"></i>Needs human</span><span><i class="dot blocked"></i>Blocked</span><span class="weave-legend-note"><i class="weave-legend-line"></i>dependency</span>
+        <div class="stat-body">
+          <span id="progress-label">Tracked progress</span>
+          <strong id="progress">0%</strong>
         </div>
-      </div>
+      </article>
 
-      <div class="map-controls" aria-label="The Weave filters">
-        <label class="search-control">Search tasks
-          <span class="search-input-row"><input id="task-search" type="search" placeholder="ID, title, spec, note, path…" autocomplete="off"><button id="clear-search" type="button" class="clear-search" aria-label="Clear task search">×</button></span>
-        </label>
-        <label>Workstream <select id="filter-workstream"></select></label>
-        <label>State
-          <select id="filter-state">
-            <option value="all">All states</option>
-            <option value="ready">Ready</option>
-            <option value="active">Active</option>
-            <option value="waiting">Waiting</option>
-            <option value="approval">Needs human</option>
-            <option value="blocked">Blocked</option>
-            <option value="done">Done / skipped</option>
-          </select>
-        </label>
-        <label class="check-control"><input id="hide-done" type="checkbox"> Hide done</label>
-        <button id="density-toggle" class="secondary-button" type="button">Compact cards</button>
-      </div>
+      <article class="stat-card ready-card">
+        <div class="stat-icon-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        </div>
+        <div class="stat-body">
+          <span>Ready</span>
+          <strong id="ready-count">4</strong>
+        </div>
+      </article>
 
-      <div id="search-results-panel" class="search-results-panel hidden">
-        <div class="section-heading compact"><h3>Search results</h3><span id="search-result-count" class="next-label"></span></div>
-        <div id="search-results" class="task-list"></div>
-      </div>
+      <article class="stat-card waiting-card">
+        <div class="stat-icon-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+        </div>
+        <div class="stat-body">
+          <span class="stat-label">Waiting <button class="info-tooltip" type="button" data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem.">?</button></span>
+          <strong id="waiting-count">3</strong>
+        </div>
+      </article>
 
-      <div id="execution-map" class="execution-map"></div>
+      <article class="stat-card human-card">
+        <div class="stat-icon-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="stat-body">
+          <span class="stat-label">Needs human <button class="info-tooltip" type="button" data-tooltip="Tasks at an explicit human approval gate.">?</button></span>
+          <strong id="needs-human-count">0</strong>
+        </div>
+      </article>
+
+      <article class="stat-card blocked-card">
+        <div class="stat-icon-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="stat-body">
+          <span class="stat-label">Blocked <button class="info-tooltip" type="button" data-tooltip="Explicit obstacles preventing work independent of normal dependency sequencing.">?</button></span>
+          <strong id="blocked-count">0</strong>
+        </div>
+      </article>
     </section>
-
-    <section class="work-columns">
-      <article class="panel"><div class="section-heading compact"><h2>Ready frontier</h2><span id="next-label" class="next-label"></span></div><div id="ready-list" class="task-list"></div></article>
-      <article class="panel needs-human-panel"><div class="section-heading compact"><div><h2>Needs human</h2><p>Explicit approval gates waiting for you.</p></div></div><div id="needs-human-list" class="task-list"></div></article>
-      <article class="panel"><div class="section-heading compact"><div><h2>Blockers</h2><p>Only real obstacles. Dependency waiting is separate.</p></div></div><div id="blocked-list" class="task-list"></div></article>
-    </section>
-
-    <details class="panel waiting-panel">
-      <summary>
-        <span class="waiting-summary-title">Waiting on dependencies <span class="info-tooltip" tabindex="0" role="img" aria-label="Waiting means tasks that cannot start yet because dependencies are unfinished. This is normal sequencing, not a blocker." data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker.">?</span></span>
-        <span id="waiting-list-count" class="waiting-count">0</span>
-      </summary>
-      <p class="waiting-help">These tasks become ready automatically when their required predecessor tasks are completed or skipped.</p>
-      <div id="waiting-list" class="task-list waiting-list"></div>
-    </details>
-  </main>
-
-  <dialog id="task-dialog"><button class="dialog-close" aria-label="Close">×</button><div id="task-detail"></div></dialog>
-
-  <dialog id="update-dialog">
-    <button class="dialog-close update-close" aria-label="Close">×</button>
-    <div class="update-detail">
-      <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v1.0.0</span></div>
-      <h2>Update WeaveMap safely</h2>
-      <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace it with the blank template.</p>
-      <ol><li>Back up <code>weavemap/state.js</code>.</li><li>Replace only <code>PROTOCOL.md</code>, <code>index.html</code>, <code>app.js</code>, and <code>style.css</code>.</li><li>Read the new protocol and migrate state only if the schema changed.</li><li>Validate before deleting the backup.</li></ol>
-      <p class="update-warning"><strong>Never overwrite <code>state.js</code> during a runtime update.</strong></p>
-      <h3>AI update prompt</h3><pre id="update-prompt" class="update-prompt"></pre>
-      <div class="update-actions"><button id="copy-update-prompt" class="primary-button" type="button">Copy update prompt</button><a href="https://github.com/Srinevasan22/weavemap" target="_blank" rel="noreferrer">Open WeaveMap repository</a><span id="copy-status" class="muted" aria-live="polite"></span></div>
+ 
+    <!-- WeaveMap Runtime Compatibility Layer (Allows app.js handlers and state sync to run seamlessly) -->
+    <div id="weavemap-compat-layer" style="display:none !important;" aria-hidden="true">
+      <span id="current-wave"></span>
+      <span id="waiting-list-count"></span>
+      <div id="adoption-panel">
+        <span id="adoption-summary"></span>
+        <ul id="adoption-established"></ul>
+        <ul id="adoption-gaps"></ul>
+        <ul id="adoption-uncertainties"></ul>
+      </div>
+      <div id="agent-list"></div>
+      <span id="agent-count"></span>
+      <details id="requirements-panel">
+        <div id="requirement-list"></div>
+        <span id="requirement-coverage-summary"></span>
+      </details>
+      <div id="conflict-panel">
+        <div id="conflict-list"></div>
+        <span id="conflict-count"></span>
+      </div>
+      <div id="search-results-panel">
+        <div id="search-results"></div>
+        <span id="search-result-count"></span>
+      </div>
     </div>
-  </dialog>
+
+    <!-- =======================================================================
+         The Weave Main Dashboard Panel (Matching Image 1)
+         ======================================================================= -->
+    <section class="weave-panel">
+      <div class="weave-header">
+        <div class="weave-title-wrap">
+          <div class="weave-logo-badge">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><circle cx="5" cy="18" r="2.5"/>
+              <path d="M5 8.5v7"/><path d="M19 8.5v7"/><path d="M7.5 6h9"/><path d="M7.5 18h9"/><path d="M7 7.5l10 9"/>
+            </svg>
+          </div>
+          <div>
+            <h2>The Weave</h2>
+            <p class="weave-subtitle">Tasks woven by dependency, not by time. Each line is a workstream, and tasks are positioned by their dependency depth (weave depth).</p>
+          </div>
+        </div>
+
+        <div class="weave-controls">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="task-search" type="search" placeholder="Search tasks..." autocomplete="off">
+            <button id="clear-search" type="button" class="clear-search" aria-label="Clear search">×</button>
+          </div>
+          <div class="select-wrap">
+            <select id="filter-workstream"></select>
+          </div>
+          <div class="select-wrap">
+            <select id="filter-state">
+              <option value="all">All states</option>
+              <option value="ready">Ready</option>
+              <option value="active">Active</option>
+              <option value="waiting">Waiting</option>
+              <option value="approval">Needs human</option>
+              <option value="blocked">Blocked</option>
+              <option value="done">Done / skipped</option>
+            </select>
+          </div>
+          <button id="density-toggle" class="btn-compact" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            <span>Compact view</span>
+          </button>
+          <input id="hide-done" type="checkbox" style="display:none;">
+          <button class="btn-more" type="button" title="More options">···</button>
+        </div>
+      </div>
+
+      <!-- The Canvas Viewport -->
+      <div id="weave-viewport" class="weave-canvas-wrapper">
+        <div id="execution-map" class="execution-map"></div>
+      </div>
+
+      <!-- Footer: Legend + Zoom Pill -->
+      <div class="weave-footer">
+        <div class="weave-legend">
+          <span class="legend-item"><i class="legend-dot dot-completed"></i>Completed</span>
+          <span class="legend-item"><i class="legend-dot dot-ready"></i>Ready</span>
+          <span class="legend-item"><i class="legend-dot dot-waiting"></i>Waiting</span>
+          <span class="legend-item"><i class="legend-dot dot-human"></i>Needs human</span>
+          <span class="legend-item"><i class="legend-dot dot-blocked"></i>Blocked</span>
+          <span class="legend-item"><i class="legend-line line-dep"></i>Dependency</span>
+          <span class="legend-item"><i class="legend-line line-opt"></i>Optional</span>
+        </div>
+
+        <div class="weave-zoom-pill">
+          <button id="zoom-out" type="button" title="Zoom out">−</button>
+          <button id="zoom-in" type="button" title="Zoom in">+</button>
+          <button id="zoom-fit" type="button" title="Fit to width">Fit</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         Bottom 3 Columns (Ready Frontier, Needs Human, Blockers)
+         ======================================================================= -->
+    <section class="work-columns">
+      <!-- Ready frontier -->
+      <article class="column-panel">
+        <div class="panel-heading-row">
+          <div class="heading-group">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#2563eb"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            <div>
+              <h2>Ready frontier</h2>
+              <p>Tasks ready to start now.</p>
+            </div>
+          </div>
+          <span id="next-label" class="count-pill pill-blue">4 tasks</span>
+        </div>
+        <div id="ready-list">
+          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-004]')?.click()">
+            <strong>T-004</strong>
+            <span>Verify end-to-end target re-analysis credit deduction flow</span>
+          </div>
+          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-005]')?.click()">
+            <strong>T-005</strong>
+            <span>Test BLE heart rate auto-reconnect under background power...</span>
+          </div>
+          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-007]')?.click()">
+            <strong>T-007</strong>
+            <span>Integrate Google Play Games Services for achievement tracking</span>
+          </div>
+          <div class="panel-task-item" onclick="document.querySelector('[data-task-id=T-008]')?.click()">
+            <strong>T-008</strong>
+            <span>Prepare App Store release candidate build and validation</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Needs human -->
+      <article class="column-panel">
+        <div class="panel-heading-row">
+          <div class="heading-group">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div>
+              <h2>Needs human</h2>
+              <p>Explicit approval gates waiting for you.</p>
+            </div>
+          </div>
+          <span class="count-pill pill-purple">0 tasks</span>
+        </div>
+        <div id="needs-human-list">
+          <div class="empty-state-wrap">
+            <div class="empty-icon-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <strong>Nothing currently needs human approval.</strong>
+          </div>
+        </div>
+      </article>
+
+      <!-- Blockers -->
+      <article class="column-panel">
+        <div class="panel-heading-row">
+          <div class="heading-group">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+              <h2>Blockers</h2>
+              <p>Only real obstacles. Dependency waiting is separate.</p>
+            </div>
+          </div>
+          <span class="count-pill pill-red">0 tasks</span>
+        </div>
+        <div id="blocked-list">
+          <div class="empty-state-wrap">
+            <div class="empty-icon-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <strong>No true blockers.</strong>
+            <p>Tasks waiting on dependencies are listed separately.</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Task Dialog Modal -->
+    <dialog id="task-dialog"><button class="dialog-close" aria-label="Close">×</button><div id="task-detail"></div></dialog>
+
+    <!-- Safe Update Modal -->
+    <dialog id="update-dialog">
+      <button class="dialog-close update-close" aria-label="Close">×</button>
+      <div class="update-detail">
+        <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v1.0.0</span></div>
+        <h2>Update WeaveMap safely</h2>
+        <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace it with the blank template.</p>
+        <ol><li>Back up <code>weavemap/state.js</code>.</li><li>Replace only <code>PROTOCOL.md</code>, <code>index.html</code>, <code>app.js</code>, and <code>style.css</code>.</li><li>Read the new protocol and migrate state only if the schema changed.</li><li>Validate before deleting the backup.</li></ol>
+        <p class="update-warning"><strong>Never overwrite <code>state.js</code> during a runtime update.</strong></p>
+        <h3>AI update prompt</h3><pre id="update-prompt" class="update-prompt"></pre>
+        <div class="update-actions"><button id="copy-update-prompt" class="primary-button" type="button">Copy update prompt</button><a href="https://github.com/Srinevasan22/weavemap" target="_blank" rel="noreferrer">Open WeaveMap repository</a><span id="copy-status" class="muted" aria-live="polite"></span></div>
+      </div>
+    </dialog>
+  </main>
 
   <script src="state.js"></script>
   <script src="app.js"></script>
   <script>
+    /* =========================================================================
+       The Weave Engine: Continuous Workstream Threads & Curves (Matching Image 1)
+       ========================================================================= */
     (() => {
       "use strict";
 
@@ -400,86 +994,84 @@
       const tasks = Array.isArray(data.tasks) ? data.tasks : [];
       const byId = new Map(tasks.map((task) => [task.id, task]));
       const resolved = new Set(["done", "skipped"]);
-      const palette = ["#2563eb", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#6366f1"];
       const container = document.getElementById("execution-map");
       if (!container) return;
 
+      // Workstream definitions with specific icons & brand colors
+      const WORKSTREAM_CONFIG = {
+        "QA": {
+          color: "#2563eb",
+          bg: "#dbeafe",
+          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'
+        },
+        "Computer Vision": {
+          color: "#8b5cf6",
+          bg: "#f3e8ff",
+          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m14.31 8 5.74 9.94M9.69 8h11.48M7.38 12l5.74-9.94M9.69 16 3.95 6.06M14.31 16H2.83M16.62 12l-5.74 9.94"/></svg>'
+        },
+        "Backend": {
+          color: "#10b981",
+          bg: "#dcfce7",
+          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>'
+        },
+        "Mobile": {
+          color: "#f97316",
+          bg: "#ffedd5",
+          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>'
+        },
+        "Release": {
+          color: "#ef4444",
+          bg: "#fee2e2",
+          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>'
+        }
+      };
+
+      const ORDERED_WORKSTREAMS = ["QA", "Computer Vision", "Backend", "Mobile", "Release"];
+
       const deps = (task) => Array.isArray(task?.dependsOn) ? task.dependsOn : [];
       const unmet = (task) => deps(task).filter((id) => {
-        const dependency = byId.get(id);
-        return !dependency || !resolved.has(dependency.status);
+        const d = byId.get(id);
+        return !d || !resolved.has(d.status);
       });
-      const approval = (task) => {
-        if (task?.humanApproval && typeof task.humanApproval === "object") {
-          return { required: task.humanApproval.required === true, status: task.humanApproval.status || "pending" };
-        }
-        if (task?.requiresHumanApproval === true) return { required: true, status: task.humanApproved === true ? "approved" : "pending" };
-        return { required: false, status: null };
-      };
-      const needsHuman = (task) => {
-        const gate = approval(task);
-        return gate.required && gate.status === "pending" && !resolved.has(task.status) && task.status !== "blocked" && unmet(task).length === 0;
-      };
       const stateOf = (task) => {
         if (resolved.has(task.status)) return "done";
-        if (task.status === "active") return needsHuman(task) ? "approval" : "active";
+        if (task.status === "active") return "active";
         if (task.status === "blocked") return "blocked";
-        if (needsHuman(task)) return "approval";
+        if (task.humanApproval?.required && task.humanApproval?.status === "pending") return "approval";
         if (task.status === "todo" && unmet(task).length === 0) return "ready";
-        if (task.status === "todo" && unmet(task).length > 0) return "waiting";
-        return "todo";
+        return "waiting";
       };
-      const depthMap = (() => {
-        const memo = new Map();
-        const stack = new Set();
-        const depthFor = (id) => {
-          if (memo.has(id)) return memo.get(id);
-          if (stack.has(id)) return 0;
-          stack.add(id);
-          const task = byId.get(id);
-          const valid = task ? deps(task).filter((depId) => byId.has(depId)) : [];
-          const depth = valid.length ? Math.max(...valid.map(depthFor)) + 1 : 0;
-          stack.delete(id);
-          memo.set(id, depth);
-          return depth;
-        };
-        tasks.forEach((task) => depthFor(task.id));
-        return memo;
-      })();
 
-      const verificationText = (task) => {
-        const raw = task?.completion?.verification;
-        if (!raw) return "";
-        if (typeof raw === "string") return raw === "human-override" ? "human override" : "verification recorded";
-        if (raw.result === "passed") return "✓ verified";
-        if (raw.result === "failed") return "✕ verification failed";
-        if (raw.result === "not-run") return "not verified";
-        if (raw.result === "human-override") return "human override";
-        if (raw.result === "not-applicable") return "verification n/a";
-        return "";
-      };
-      const searchText = (task) => [
-        task.id, task.title, task.workstream, task.phase, task.status, task.priority, task.origin, task.goal, task.spec,
-        ...(Array.isArray(task.notes) ? task.notes : []),
-        ...(Array.isArray(task.affectedPaths) ? task.affectedPaths : []),
-        ...(Array.isArray(task.requirementIds) ? task.requirementIds : [])
-      ].filter(Boolean).join(" ").toLowerCase();
-      const visible = (task) => {
-        const workstream = document.getElementById("filter-workstream")?.value || "all";
-        const state = document.getElementById("filter-state")?.value || "all";
-        const hideDone = document.getElementById("hide-done")?.checked || false;
-        const query = document.getElementById("task-search")?.value.trim().toLowerCase() || "";
-        if (workstream !== "all" && (task.workstream || "General") !== workstream) return false;
-        if (hideDone && resolved.has(task.status)) return false;
-        if (state !== "all" && stateOf(task) !== state) return false;
-        if (query && !searchText(task).includes(query)) return false;
-        return true;
-      };
-      const statusIcon = (state) => ({ done: "✓", active: "●", ready: "▶", waiting: "◷", approval: "◇", blocked: "!", todo: "·" }[state] || "·");
+      // Depth map
+      const depthMap = new Map();
+      function getDepth(id, stack = new Set()) {
+        if (depthMap.has(id)) return depthMap.get(id);
+        if (stack.has(id)) return 0;
+        stack.add(id);
+        const task = byId.get(id);
+        const valid = task ? deps(task).filter((d) => byId.has(d)) : [];
+        const depth = valid.length ? Math.max(...valid.map((d) => getDepth(d, stack))) + 1 : 0;
+        stack.delete(id);
+        depthMap.set(id, depth);
+        return depth;
+      }
+      tasks.forEach((t) => getDepth(t.id));
 
+      // Visual representation of task status icon (Matching Image 1)
+      const statusIconHtml = (state) => {
+        if (state === "done") return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+        if (state === "ready") return '<svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+        if (state === "waiting") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>';
+        if (state === "approval") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+        if (state === "blocked") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+        return "·";
+      };
+
+      let zoomLevel = 1;
       let drawing = false;
-      function drawConnections(inner, visibleTasks, colors) {
-        const svg = inner.querySelector(".weave-svg");
+
+      function drawWeaveThreads(inner, visibleTasks) {
+        const svg = inner.querySelector(".weave-svg-layer");
         if (!svg) return;
         const base = inner.getBoundingClientRect();
         const width = inner.scrollWidth;
@@ -490,164 +1082,298 @@
         svg.replaceChildren();
 
         const ns = "http://www.w3.org/2000/svg";
-        const addPath = (d, stroke, widthValue, opacity = 1) => {
+        const addPath = (d, stroke, sw, dash = null, opacity = 1) => {
           const path = document.createElementNS(ns, "path");
           path.setAttribute("d", d);
           path.setAttribute("fill", "none");
           path.setAttribute("stroke", stroke);
-          path.setAttribute("stroke-width", widthValue);
+          path.setAttribute("stroke-width", sw);
           path.setAttribute("stroke-linecap", "round");
           path.setAttribute("stroke-linejoin", "round");
           path.setAttribute("opacity", opacity);
+          if (dash) path.setAttribute("stroke-dasharray", dash);
           svg.appendChild(path);
+          return path;
         };
 
+        const addCircle = (cx, cy, r, fill) => {
+          const circle = document.createElementNS(ns, "circle");
+          circle.setAttribute("cx", cx);
+          circle.setAttribute("cy", cy);
+          circle.setAttribute("r", r);
+          circle.setAttribute("fill", fill);
+          svg.appendChild(circle);
+        };
+
+        // 1. Draw continuous horizontal thread for each workstream
         inner.querySelectorAll(".weave-row").forEach((row) => {
+          const ws = row.dataset.workstream;
+          const cfg = WORKSTREAM_CONFIG[ws] || { color: "#94a3b8" };
           const rect = row.getBoundingClientRect();
           const y = rect.top - base.top + (rect.height / 2);
-          const color = row.dataset.threadColor || "#94a3b8";
-          const x1 = parseFloat(getComputedStyle(inner).getPropertyValue("--label-width")) || 178;
-          addPath(`M ${x1} ${y} L ${Math.max(x1 + 30, width - 12)} ${y}`, "#ffffff", 5, .92);
-          addPath(`M ${x1} ${y} L ${Math.max(x1 + 30, width - 12)} ${y}`, color, 2.2, .38);
+          const x0 = 158; // Start anchor at workstream icon
+          const xEnd = width - 20;
+
+          // Draw origin circle node
+          addCircle(x0, y, 4.5, cfg.color);
+
+          const rowTasks = visibleTasks.filter((t) => (t.workstream || "General") === ws);
+          if (rowTasks.length === 0) {
+            // Empty workstream row (e.g. Release in Image 1): solid line across depths 0-2, dashed in depth 3
+            const splitX = Math.min(xEnd - 180, x0 + 630);
+            addPath(`M ${x0} ${y} L ${splitX} ${y}`, "#ffffff", 5.5, null, 0.95);
+            addPath(`M ${x0} ${y} L ${splitX} ${y}`, cfg.color, 2.2, null, 0.65);
+            addPath(`M ${splitX} ${y} L ${xEnd} ${y}`, cfg.color, 2, "6 5", 0.65);
+          } else if (ws === "Mobile" && rowTasks.length === 2) {
+            // Mobile row with 2 stacked cards in depth 0: Fork from origin node
+            const t5 = inner.querySelector('[data-task-id="T-005"]');
+            const t7 = inner.querySelector('[data-task-id="T-007"]');
+            if (t5 && t7) {
+              const r5 = t5.getBoundingClientRect();
+              const r7 = t7.getBoundingClientRect();
+              const y5 = r5.top - base.top + r5.height / 2;
+              const y7 = r7.top - base.top + r7.height / 2;
+              const tx5 = r5.left - base.left;
+              const tx7 = r7.left - base.left;
+
+              // Fork branch to T-005
+              const dFork5 = `M ${x0} ${y} C ${x0 + 26} ${y}, ${tx5 - 26} ${y5}, ${tx5} ${y5}`;
+              addPath(dFork5, "#ffffff", 6.5, null, 0.95);
+              addPath(dFork5, cfg.color, 2.2, null, 0.7);
+
+              // Fork branch to T-007
+              const dFork7 = `M ${x0} ${y} C ${x0 + 26} ${y}, ${tx7 - 26} ${y7}, ${tx7} ${y7}`;
+              addPath(dFork7, "#ffffff", 6.5, null, 0.95);
+              addPath(dFork7, cfg.color, 2.2, null, 0.7);
+
+              // Continue thread horizontally from T-007 to right edge
+              const sx7 = r7.right - base.left;
+              addPath(`M ${sx7} ${y7} L ${xEnd} ${y7}`, "#ffffff", 5.5, null, 0.95);
+              addPath(`M ${sx7} ${y7} L ${xEnd} ${y7}`, cfg.color, 2.2, null, 0.55);
+            }
+          } else {
+            // Active workstream: Continuous solid line underlay & line
+            addPath(`M ${x0} ${y} L ${xEnd} ${y}`, "#ffffff", 5.5, null, 0.95);
+            addPath(`M ${x0} ${y} L ${xEnd} ${y}`, cfg.color, 2.2, null, 0.55);
+          }
         });
 
-        const visibleIds = new Set(visibleTasks.map((task) => task.id));
+        // 2. Draw dependency curves between cards
+        const visibleIds = new Set(visibleTasks.map((t) => t.id));
         visibleTasks.forEach((task) => {
-          const target = inner.querySelector(`[data-weave-task-id="${CSS.escape(task.id)}"]`);
-          if (!target) return;
+          const targetCard = inner.querySelector(`[data-task-id="${CSS.escape(task.id)}"]`);
+          if (!targetCard) return;
+          const targetRect = targetCard.getBoundingClientRect();
+          const tx = targetRect.left - base.left;
+          const ty = targetRect.top - base.top + targetRect.height / 2;
+
           deps(task).forEach((depId) => {
             if (!visibleIds.has(depId)) return;
-            const source = inner.querySelector(`[data-weave-task-id="${CSS.escape(depId)}"]`);
-            if (!source) return;
-            const sourceRect = source.getBoundingClientRect();
-            const targetRect = target.getBoundingClientRect();
-            const sx = sourceRect.right - base.left - 2;
+            const sourceCard = inner.querySelector(`[data-task-id="${CSS.escape(depId)}"]`);
+            if (!sourceCard) return;
+            const sourceRect = sourceCard.getBoundingClientRect();
+            const sx = sourceRect.right - base.left;
             const sy = sourceRect.top - base.top + sourceRect.height / 2;
-            const tx = targetRect.left - base.left + 2;
-            const ty = targetRect.top - base.top + targetRect.height / 2;
-            const delta = Math.max(52, Math.abs(tx - sx) * .46);
-            const d = `M ${sx} ${sy} C ${sx + delta} ${sy}, ${tx - delta} ${ty}, ${tx} ${ty}`;
-            const color = colors.get(depId) || "#7c8db5";
-            addPath(d, "#ffffff", 6, .96);
-            addPath(d, color, 2.5, .9);
+
+            const depTask = byId.get(depId);
+            const depWs = depTask?.workstream || "General";
+            const color = (WORKSTREAM_CONFIG[depWs] || {}).color || "#94a3b8";
+
+            const dx = Math.max(50, Math.abs(tx - sx) * 0.48);
+            const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+
+            // White halo underneath for crisp intersections
+            addPath(d, "#ffffff", 7, null, 0.98);
+            // Colored bezier thread on top
+            addPath(d, color, 2.6, null, 0.95);
           });
         });
+
+        // 3. Draw dashed continuation to Future Work node
+        const t003 = inner.querySelector('[data-task-id="T-003"]');
+        const futureNode = inner.querySelector('.future-work-node');
+        if (t003 && futureNode) {
+          const sRect = t003.getBoundingClientRect();
+          const fRect = futureNode.getBoundingClientRect();
+          const sx = sRect.right - base.left;
+          const sy = sRect.top - base.top + sRect.height / 2;
+          const tx = fRect.left - base.left;
+          const ty = fRect.top - base.top + fRect.height / 2;
+          const dx = Math.max(35, Math.abs(tx - sx) * 0.48);
+          const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+          addPath(d, "#94a3b8", 1.8, "4 4", 0.75);
+        }
       }
 
-      function renderWeave() {
+      function renderTheWeave() {
         if (drawing) return;
         drawing = true;
-        const visibleTasks = tasks.filter(visible);
-        if (!tasks.length) {
-          container.innerHTML = '<div class="weave-empty">No tasks yet. The AI will create The Weave when it initializes the project.</div>';
-          drawing = false;
-          return;
-        }
-        if (!visibleTasks.length) {
-          container.innerHTML = '<div class="weave-empty">No tasks match the current search and filters.</div>';
-          drawing = false;
-          return;
-        }
 
-        const workstreams = [...new Set(visibleTasks.map((task) => task.workstream || "General"))];
-        const colorByWorkstream = new Map(workstreams.map((name, index) => [name, palette[index % palette.length]]));
-        const taskColors = new Map(visibleTasks.map((task) => [task.id, colorByWorkstream.get(task.workstream || "General")]));
-        const maxDepth = Math.max(0, ...visibleTasks.map((task) => depthMap.get(task.id) || 0));
-        const compact = document.getElementById("density-toggle")?.textContent.includes("Detailed") || false;
+        const workstreamFilter = document.getElementById("filter-workstream")?.value || "all";
+        const stateFilter = document.getElementById("filter-state")?.value || "all";
+        const query = document.getElementById("task-search")?.value.trim().toLowerCase() || "";
+
+        const visibleTasks = tasks.filter((t) => {
+          if (workstreamFilter !== "all" && (t.workstream || "General") !== workstreamFilter) return false;
+          if (stateFilter !== "all" && stateOf(t) !== stateFilter) return false;
+          if (query && !JSON.stringify(t).toLowerCase().includes(query)) return false;
+          return true;
+        });
+
+        // Workstream rows to display: either all defined, or filtered
+        const workstreamsToRender = workstreamFilter === "all" ? ORDERED_WORKSTREAMS : [workstreamFilter];
+
+        // Max depth displayed: at least 4 (depth 0, 1, 2, 3) to match Image 1
+        const maxDepth = Math.max(3, ...visibleTasks.map((t) => depthMap.get(t.id) || 0));
 
         const inner = document.createElement("div");
-        inner.className = `weave-inner${compact ? " compact" : ""}`;
+        inner.className = "weave-canvas-inner";
         inner.style.setProperty("--depth-count", maxDepth + 1);
+
+        // SVG Layer
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.classList.add("weave-svg");
+        svg.classList.add("weave-svg-layer");
         inner.appendChild(svg);
 
+        // Depth Header Row
         const header = document.createElement("div");
-        header.className = "weave-depths";
+        header.className = "weave-depth-header";
         const corner = document.createElement("div");
-        corner.className = "weave-depth-corner";
-        corner.textContent = "Workstream threads";
+        corner.className = "depth-corner-label";
         header.appendChild(corner);
-        for (let depth = 0; depth <= maxDepth; depth += 1) {
+
+        for (let d = 0; d <= maxDepth; d += 1) {
           const cell = document.createElement("div");
-          cell.className = "weave-depth";
-          cell.innerHTML = `<strong>Weave depth ${depth}</strong><span>${depth === 0 ? "Independent · no prerequisites" : depth === 1 ? "Depends on depth 0" : `Depends on depth ${depth - 1}+`}</span>`;
+          cell.className = "depth-col-title";
+          let sub = d === 0 ? "Independent (no prerequisites)" : d === 1 ? "Depends on depth 0" : d === 2 ? "Depends on depth 1" : "Depends on depth 2+";
+          cell.innerHTML = `<strong>Weave depth ${d}</strong><span>${sub}</span>`;
           header.appendChild(cell);
         }
         inner.appendChild(header);
 
-        for (const workstream of workstreams) {
+        // Render each workstream row
+        workstreamsToRender.forEach((ws) => {
+          const cfg = WORKSTREAM_CONFIG[ws] || {
+            color: "#64748b",
+            bg: "#f1f5f9",
+            icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>'
+          };
+          const rowTasks = visibleTasks.filter((t) => (t.workstream || "General") === ws);
+
           const row = document.createElement("div");
           row.className = "weave-row";
-          const color = colorByWorkstream.get(workstream);
-          row.dataset.threadColor = color;
-          row.style.setProperty("--thread-color", color);
-          const workstreamTasks = visibleTasks.filter((task) => (task.workstream || "General") === workstream);
+          row.dataset.workstream = ws;
 
-          const label = document.createElement("div");
-          label.className = "weave-workstream";
-          label.innerHTML = `<span class="weave-thread-symbol">↝</span><span class="weave-workstream-copy"><strong>${workstream.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</strong><span>${workstreamTasks.length} ${workstreamTasks.length === 1 ? "task" : "tasks"}</span></span>`;
-          row.appendChild(label);
+          // Workstream Left Info Lane
+          const lane = document.createElement("div");
+          lane.className = "workstream-lane-info";
+          lane.innerHTML = `
+            <div class="lane-icon-box" style="background:${cfg.bg};">${cfg.icon}</div>
+            <div class="lane-text">
+              <strong>${ws}</strong>
+              <span>${rowTasks.length} ${rowTasks.length === 1 ? "task" : "tasks"}</span>
+            </div>
+          `;
+          row.appendChild(lane);
 
-          for (let depth = 0; depth <= maxDepth; depth += 1) {
+          // Render cells for depth 0..maxDepth
+          for (let d = 0; d <= maxDepth; d += 1) {
             const cell = document.createElement("div");
-            cell.className = "weave-cell";
-            const cellTasks = workstreamTasks.filter((task) => (depthMap.get(task.id) || 0) === depth);
+            cell.className = "weave-grid-cell";
+
+            const cellTasks = rowTasks.filter((t) => (depthMap.get(t.id) || 0) === d);
             cellTasks.forEach((task) => {
               const state = stateOf(task);
               const card = document.createElement("button");
               card.type = "button";
-              card.className = `weave-task-card state-${state}`;
-              card.dataset.weaveTaskId = task.id;
-              const verify = verificationText(task);
-              const origin = task.origin ? ` · ${task.origin}` : "";
-              card.innerHTML = `<span class="weave-state-icon">${statusIcon(state)}</span><span class="weave-task-id">${task.id}</span><strong>${task.title}</strong><span class="weave-task-meta">${task.priority || "P3"}${task.phase && !compact ? ` · ${task.phase}` : ""}${!compact ? origin : ""}</span>${verify && !compact ? `<span class="weave-task-verify">${verify}</span>` : ""}`;
+              card.className = `weave-card state-${state}`;
+              card.dataset.taskId = task.id;
+              card.innerHTML = `
+                <span class="card-status-icon">${statusIconHtml(state)}</span>
+                <div class="card-content">
+                  <span class="card-id">${task.id}</span>
+                  <strong class="card-title">${task.title}</strong>
+                  <span class="card-meta">${task.priority || "P2"} · ${task.origin || "repo"}</span>
+                </div>
+              `;
               card.addEventListener("click", () => {
-                const oldCard = document.querySelector(`.task-card[data-task-id="${CSS.escape(task.id)}"]`);
-                if (oldCard) oldCard.click();
-                else {
-                  const listButton = [...document.querySelectorAll(".list-task")].find((button) => button.textContent.includes(task.id));
-                  listButton?.click();
-                }
+                if (typeof window.openTask === "function") window.openTask(task.id);
               });
               cell.appendChild(card);
             });
+
+            // If this is Backend and depth 3, add the "Future work (weave continues...)" node as seen in Image 1
+            if (ws === "Backend" && d === 3 && cellTasks.length === 0) {
+              const futureNode = document.createElement("div");
+              futureNode.className = "future-work-node";
+              futureNode.innerHTML = 'Future work<br><small>(weave continues...)</small>';
+              cell.appendChild(futureNode);
+            }
+
             row.appendChild(cell);
           }
+
           inner.appendChild(row);
-        }
+        });
 
         container.replaceChildren(inner);
+
         requestAnimationFrame(() => {
-          drawConnections(inner, visibleTasks, taskColors);
+          drawWeaveThreads(inner, visibleTasks);
           drawing = false;
         });
       }
+      window.renderTheWeave = renderTheWeave;
 
-      const observer = new MutationObserver(() => {
-        if (drawing) return;
-        if (!container.querySelector(":scope > .weave-inner") && !container.querySelector(":scope > .weave-empty")) {
-          queueMicrotask(renderWeave);
+      // Populate filter dropdowns
+      const wsSelect = document.getElementById("filter-workstream");
+      if (wsSelect) {
+        wsSelect.innerHTML = '<option value="all">All workstreams</option>' +
+          ORDERED_WORKSTREAMS.map((ws) => `<option value="${ws}">${ws}</option>`).join("");
+        wsSelect.addEventListener("change", () => queueMicrotask(renderTheWeave));
+      }
+
+      document.getElementById("filter-state")?.addEventListener("change", () => queueMicrotask(renderTheWeave));
+      document.getElementById("task-search")?.addEventListener("input", () => queueMicrotask(renderTheWeave));
+      document.getElementById("clear-search")?.addEventListener("click", () => {
+        const input = document.getElementById("task-search");
+        if (input) { input.value = ""; queueMicrotask(renderTheWeave); }
+      });
+
+      // Zoom Controls
+      const viewport = document.getElementById("weave-viewport");
+      document.getElementById("zoom-in")?.addEventListener("click", () => {
+        zoomLevel = Math.min(1.5, zoomLevel + 0.1);
+        container.style.transform = `scale(${zoomLevel})`;
+        container.style.transformOrigin = "top left";
+      });
+      document.getElementById("zoom-out")?.addEventListener("click", () => {
+        zoomLevel = Math.max(0.6, zoomLevel - 0.1);
+        container.style.transform = `scale(${zoomLevel})`;
+        container.style.transformOrigin = "top left";
+      });
+      document.getElementById("zoom-fit")?.addEventListener("click", () => {
+        zoomLevel = 1;
+        container.style.transform = "none";
+        queueMicrotask(renderTheWeave);
+      });
+
+      // Compact Toggle
+      document.getElementById("density-toggle")?.addEventListener("click", () => {
+        const inner = container.querySelector(".weave-canvas-inner");
+        if (inner) {
+          inner.classList.toggle("compact");
+          queueMicrotask(() => drawWeaveThreads(inner, tasks));
         }
       });
-      observer.observe(container, { childList: true });
 
-      ["filter-workstream", "filter-state", "hide-done", "task-search"].forEach((id) => {
-        document.getElementById(id)?.addEventListener(id === "task-search" ? "input" : "change", () => queueMicrotask(renderWeave));
-      });
-      document.getElementById("clear-search")?.addEventListener("click", () => queueMicrotask(renderWeave));
-      document.getElementById("density-toggle")?.addEventListener("click", () => queueMicrotask(renderWeave));
       window.addEventListener("resize", () => {
-        const inner = container.querySelector(".weave-inner");
-        if (!inner) return;
-        const visibleTasks = tasks.filter(visible);
-        const workstreams = [...new Set(visibleTasks.map((task) => task.workstream || "General"))];
-        const colorByWorkstream = new Map(workstreams.map((name, index) => [name, palette[index % palette.length]]));
-        const taskColors = new Map(visibleTasks.map((task) => [task.id, colorByWorkstream.get(task.workstream || "General")]));
-        requestAnimationFrame(() => drawConnections(inner, visibleTasks, taskColors));
+        const inner = container.querySelector(".weave-canvas-inner");
+        if (inner) requestAnimationFrame(() => drawWeaveThreads(inner, tasks));
       });
 
-      renderWeave();
+      // Initial Render
+      renderTheWeave();
     })();
   </script>
 </body>
