@@ -40,6 +40,14 @@
       }
     }
 
+    if (data.project?.entryMode && !["new", "adopted"].includes(data.project.entryMode)) {
+      errors.push('project.entryMode must be "new" or "adopted".');
+    }
+
+    if (data.project?.entryMode === "adopted" && !data.adoption) {
+      errors.push("Adopted projects should include an adoption baseline.");
+    }
+
     function visit(id, path = []) {
       if (visiting.has(id)) {
         errors.push(`Dependency cycle detected: ${[...path, id].join(" → ")}.`);
@@ -145,10 +153,41 @@
     const activeOrReady = rankTasks(tasks.filter((task) => task.status === "active" || isReady(task)));
     const currentWave = activeOrReady.length ? waves.get(activeOrReady[0].id) : null;
 
+    $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
     $("progress").textContent = `${progress}%`;
     $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
     $("ready-count").textContent = ready.length;
     $("blocked-count").textContent = blocked.length;
+  }
+
+  function renderBaselineList(targetId, items, emptyMessage) {
+    const target = $(targetId);
+    const values = Array.isArray(items) ? items.filter(Boolean) : [];
+    target.replaceChildren();
+
+    if (!values.length) {
+      const item = document.createElement("li");
+      item.textContent = emptyMessage;
+      target.appendChild(item);
+      return;
+    }
+
+    for (const value of values) {
+      const item = document.createElement("li");
+      item.textContent = value;
+      target.appendChild(item);
+    }
+  }
+
+  function renderAdoption() {
+    if (data.project?.entryMode !== "adopted") return;
+
+    const adoption = data.adoption || {};
+    $("adoption-panel").classList.remove("hidden");
+    $("adoption-summary").textContent = adoption.baselineSummary || "WeaveMap joined this project after development had already begun.";
+    renderBaselineList("adoption-established", adoption.established, "No established capabilities recorded.");
+    renderBaselineList("adoption-gaps", adoption.gaps, "No gaps recorded.");
+    renderBaselineList("adoption-uncertainties", adoption.uncertainties, "No uncertainties recorded.");
   }
 
   function normalizedAgents() {
@@ -322,6 +361,7 @@
 
   renderHeader();
   renderStats();
+  renderAdoption();
   renderAgents();
   renderExecutionMap();
   renderQueues();
