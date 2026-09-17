@@ -4,8 +4,16 @@
   const data = window.WEAVEMAP || {};
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   const agents = Array.isArray(data.agents) ? data.agents : [];
+  const requirements = Array.isArray(data.requirements) ? data.requirements : [];
+  const decisions = Array.isArray(data.decisions) ? data.decisions : [];
+  const strictV4 = Number(data.schemaVersion || 0) >= 4;
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const resolvedStatuses = new Set(["done", "skipped"]);
+  const taskStatuses = new Set(["todo", "active", "blocked", "done", "skipped"]);
+  const requirementStatuses = new Set(["active", "satisfied", "dropped"]);
+  const decisionStatuses = new Set(["active", "superseded"]);
+  const origins = new Set(["user", "repo", "agent"]);
+  const gapDispositions = new Set(["tracked", "deferred", "accepted"]);
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value)
@@ -26,18 +34,60 @@
     });
   }
 
-  function validateGraph() {
+  function duplicateIds(items) {
+    const seen = new Set();
+    const duplicates = new Set();
+    for (const item of items) {
+      if (!item?.id) continue;
+      if (seen.has(item.id)) duplicates.add(item.id);
+      seen.add(item.id);
+    }
+    return [...duplicates];
+  }
+
+  function validEvidence(value) {
+    return value === undefined || (Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry.trim()));
+  }
+
+  function validateState() {
     const errors = [];
     const visiting = new Set();
     const visited = new Set();
 
+    for (const id of duplicateIds(tasks)) errors.push(`Duplicate task id ${id}.`);
+    for (const id of duplicateIds(requirements)) errors.push(`Duplicate requirement id ${id}.`);
+    for (const id of duplicateIds(decisions)) errors.push(`Duplicate decision id ${id}.`);
+
     for (const task of tasks) {
-      if (!task.id || !task.title) errors.push("Every task needs an id and title.");
+      const label = task?.id || "Unknown task";
+      if (!task?.id || !task?.title) errors.push("Every task needs an id and title.");
+      if (!taskStatuses.has(task?.status)) errors.push(`${label} has invalid status ${task?.status ?? "undefined"}.`);
+      if (!/^P[1-5]$/.test(String(task?.priority || ""))) errors.push(`${label} priority must be P1 through P5.`);
+      if (!Number.isInteger(task?.effort) || task.effort < 1 || task.effort > 5) errors.push(`${label} effort must be an integer from 1 through 5.`);
+      if (!Array.isArray(task?.dependsOn)) errors.push(`${label} dependsOn must be an array.`);
       for (const dependencyId of dependencies(task)) {
-        if (!byId.has(dependencyId)) {
-          errors.push(`${task.id || "Unknown task"} depends on missing task ${dependencyId}.`);
-        }
+        if (!byId.has(dependencyId)) errors.push(`${label} depends on missing task ${dependencyId}.`);
+        if (dependencyId === task.id) errors.push(`${label} cannot depend on itself.`);
       }
+    }
+
+    for (const requirement of requirements) {
+      const label = requirement?.id || "Unknown requirement";
+      if (!requirement?.id || !requirement?.text) errors.push("Every requirement needs an id and text.");
+      if (!requirementStatuses.has(requirement?.status)) errors.push(`${label} has invalid status ${requirement?.status ?? "undefined"}.`);
+      if (strictV4 && !origins.has(requirement?.origin)) errors.push(`${label} origin must be user, repo, or agent.`);
+      if (!validEvidence(requirement?.evidence)) errors.push(`${label} evidence must be an array of repository-relative strings.`);
+    }
+
+    const decisionIds = new Set(decisions.map((decision) => decision?.id).filter(Boolean));
+    for (const decision of decisions) {
+      const label = decision?.id || "Unknown decision";
+      if (!decision?.id || !decision?.title) errors.push("Every decision needs an id and title.");
+      if (!decisionStatuses.has(decision?.status)) errors.push(`${label} has invalid status ${decision?.status ?? "undefined"}.`);
+      if (strictV4 && !origins.has(decision?.origin)) errors.push(`${label} origin must be user, repo, or agent.`);
+      if (!validEvidence(decision?.evidence)) errors.push(`${label} evidence must be an array of repository-relative strings.`);
+      if (decision?.supersedes && !decisionIds.has(decision.supersedes)) errors.push(`${label} supersedes missing decision ${decision.supersedes}.`);
+      if (decision?.supersedes === decision?.id) errors.push(`${label} cannot supersede itself.`);
     }
 
     if (data.project?.entryMode && !["new", "adopted"].includes(data.project.entryMode)) {
@@ -46,6 +96,43 @@
 
     if (data.project?.entryMode === "adopted" && !data.adoption) {
       errors.push("Adopted projects should include an adoption baseline.");
+    }
+
+    if (data.project?.entryMode === "adopted" && data.adoption) {
+      const adoption = data.adoption;
+      for (const [kind, entries] of [["established", adoption.established], ["gaps", adoption.gaps], ["uncertainties", adoption.uncertainties]]) {
+        if (!Array.isArray(entries)) {
+          errors.push(`adoption.${kind} must be an array.`);
+          continue;
+        }
+        entries.forEach((entry, index) => {
+          if (strictV4 && (typeof entry !== "object" || !entry || Array.isArray(entry))) {
+            errors.push(`adoption.${kind}[${index}] must be a structured finding object in schema v4.`);
+            return;
+          }
+          if (typeof entry === "object" && entry) {
+            if (!entry.text) errors.push(`adoption.${kind}[${index}] needs text.`);
+            if (!validEvidence(entry.evidence)) errors.push(`adoption.${kind}[${index}] evidence must be an array of repository-relative strings.`);
+          }
+        });
+      }
+
+      if (Array.isArray(adoption.gaps)) {
+        adoption.gaps.forEach((gap, index) => {
+          if (typeof gap !== "object" || !gap) return;
+          if (!gapDispositions.has(gap.disposition)) errors.push(`adoption.gaps[${index}] disposition must be tracked, deferred, or accepted.`);
+          if (!Array.isArray(gap.taskIds)) {
+            errors.push(`adoption.gaps[${index}] taskIds must be an array.`);
+            return;
+          }
+          for (const taskId of gap.taskIds) {
+            if (!byId.has(taskId)) errors.push(`adoption.gaps[${index}] references missing task ${taskId}.`);
+          }
+          if (gap.disposition === "tracked" && gap.taskIds.length === 0) {
+            errors.push(`adoption.gaps[${index}] is tracked but has no taskIds.`);
+          }
+        });
+      }
     }
 
     function visit(id, path = []) {
@@ -88,7 +175,7 @@
     return memo;
   }
 
-  const graphErrors = validateGraph();
+  const stateErrors = validateState();
   const waves = calculateWaves();
 
   function isReady(task) {
@@ -105,7 +192,6 @@
   }
 
   function priorityValue(priority) {
-    if (typeof priority === "number") return priority;
     const match = String(priority || "").match(/\d+/);
     return match ? Number(match[0]) : 99;
   }
@@ -139,9 +225,9 @@
 
     if (!data.initialized) $("onboarding").classList.remove("hidden");
 
-    if (graphErrors.length) {
+    if (stateErrors.length) {
       $("validation").classList.remove("hidden");
-      $("validation").innerHTML = `<strong>Project graph needs attention.</strong><ul>${graphErrors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`;
+      $("validation").innerHTML = `<strong>WeaveMap state needs attention.</strong><ul>${stateErrors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`;
     }
   }
 
@@ -160,9 +246,20 @@
     $("blocked-count").textContent = blocked.length;
   }
 
-  function renderBaselineList(targetId, items, emptyMessage) {
+  function normalizeFinding(value, kind) {
+    if (typeof value === "string") return { text: value, evidence: [], taskIds: [], disposition: null };
+    if (!value || typeof value !== "object") return null;
+    return {
+      text: value.text || "",
+      evidence: Array.isArray(value.evidence) ? value.evidence : [],
+      taskIds: kind === "gaps" && Array.isArray(value.taskIds) ? value.taskIds : [],
+      disposition: kind === "gaps" ? value.disposition || null : null
+    };
+  }
+
+  function renderBaselineList(targetId, items, emptyMessage, kind) {
     const target = $(targetId);
-    const values = Array.isArray(items) ? items.filter(Boolean) : [];
+    const values = Array.isArray(items) ? items.map((value) => normalizeFinding(value, kind)).filter((value) => value?.text) : [];
     target.replaceChildren();
 
     if (!values.length) {
@@ -174,7 +271,25 @@
 
     for (const value of values) {
       const item = document.createElement("li");
-      item.textContent = value;
+      item.className = "baseline-item";
+
+      const text = document.createElement("span");
+      text.className = "baseline-text";
+      text.textContent = value.text;
+      item.appendChild(text);
+
+      const metadata = [];
+      if (value.disposition) metadata.push(value.disposition);
+      if (value.taskIds.length) metadata.push(value.taskIds.join(", "));
+      if (value.evidence.length) metadata.push(`evidence: ${value.evidence.join(" · ")}`);
+
+      if (metadata.length) {
+        const meta = document.createElement("span");
+        meta.className = "baseline-meta";
+        meta.textContent = metadata.join("  •  ");
+        item.appendChild(meta);
+      }
+
       target.appendChild(item);
     }
   }
@@ -185,9 +300,9 @@
     const adoption = data.adoption || {};
     $("adoption-panel").classList.remove("hidden");
     $("adoption-summary").textContent = adoption.baselineSummary || "WeaveMap joined this project after development had already begun.";
-    renderBaselineList("adoption-established", adoption.established, "No established capabilities recorded.");
-    renderBaselineList("adoption-gaps", adoption.gaps, "No gaps recorded.");
-    renderBaselineList("adoption-uncertainties", adoption.uncertainties, "No uncertainties recorded.");
+    renderBaselineList("adoption-established", adoption.established, "No established capabilities recorded.", "established");
+    renderBaselineList("adoption-gaps", adoption.gaps, "No gaps recorded.", "gaps");
+    renderBaselineList("adoption-uncertainties", adoption.uncertainties, "No uncertainties recorded.", "uncertainties");
   }
 
   function normalizedAgents() {
