@@ -1,7 +1,58 @@
 # WeaveMap
 
-AI-first, repo-local project management.
+**Project management for AI. A map for humans.**
 
-WeaveMap is designed for AI agents to plan, track, and navigate project work through dependencies and execution waves, while giving humans a lightweight view of project progress.
+WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains the project plan, specs, task state, and dependencies. The human opens a static execution map to see what is done, what is ready, what is blocked, and how work progresses through dependency **waves**.
 
-> Early development.
+## Drop it into a project
+
+Copy this repository's files into a `weavemap/` folder inside any project:
+
+```text
+your-project/
+├── src/
+├── ...
+└── weavemap/
+    ├── AGENTS.md
+    ├── state.js
+    ├── index.html
+    ├── app.js
+    └── style.css
+```
+
+Then tell your coding AI:
+
+> Read `weavemap/AGENTS.md`, inspect this project, initialize WeaveMap, and use it as the project-management source of truth as you work.
+
+Open `weavemap/index.html` in a browser whenever you want to inspect the project.
+
+## No install
+
+WeaveMap has:
+
+- no build step
+- no package manager
+- no database
+- no account
+- no cloud service
+- no external JavaScript or CSS dependencies
+
+The project state lives in `state.js` and travels with the repository.
+
+## Core model
+
+- **Tasks** contain the goal, implementation spec, acceptance criteria, effort, priority, status, and dependencies.
+- **Dependencies** are the structural source of truth.
+- **Waves** are calculated dependency depths, not dates or weeks.
+- **Ready frontier** is the set of work that can execute now.
+- **Recommended next** prefers active work, then priority, downstream impact, and lower effort.
+- **Requirements** record what the project must achieve.
+- **Decisions** preserve important project choices and why they were made.
+
+The execution map is derived automatically. The AI should not manually assign wave numbers.
+
+## Philosophy
+
+WeaveMap does not try to be Jira or Notion. The AI is the project manager; the human interface is for observability and intervention.
+
+The repo is intentionally small so the whole tool can be copied into another project and used immediately.
