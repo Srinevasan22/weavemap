@@ -17,7 +17,7 @@ done
 
 if [ ! -f "${TARGET_DIR}/state.js" ]; then
   echo "  ⬇️  Initializing blank ${TARGET_DIR}/state.js..."
-  curl -fsSL "${REPO_BASE}/state.js" -o "${TARGET_DIR}/state.js"
+  curl -fsSL "${REPO_BASE}/state.template.js" -o "${TARGET_DIR}/state.js"
 else
   echo "  🔒 Existing ${TARGET_DIR}/state.js preserved."
 fi

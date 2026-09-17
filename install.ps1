@@ -19,7 +19,7 @@ foreach ($file in $RuntimeFiles) {
 $StatePath = Join-Path $TargetDir "state.js"
 if (-not (Test-Path $StatePath)) {
     Write-Host "  Initializing blank $StatePath..."
-    Invoke-RestMethod -Uri "$RepoBase/state.js" -OutFile $StatePath
+    Invoke-RestMethod -Uri "$RepoBase/state.template.js" -OutFile $StatePath
 } else {
     Write-Host "  Existing $StatePath preserved." -ForegroundColor Yellow
 }
