@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const RUNTIME_VERSION = "0.5.0";
+  const RUNTIME_VERSION = "0.6.0";
   const CURRENT_SCHEMA_VERSION = 4;
 
   window.WEAVEMAP_RUNTIME = Object.freeze({
@@ -22,6 +22,7 @@
   const decisionStatuses = new Set(["active", "superseded"]);
   const origins = new Set(["user", "repo", "agent"]);
   const gapDispositions = new Set(["tracked", "deferred", "accepted"]);
+  let stateFileHandle = null;
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value)
@@ -464,6 +465,56 @@
     renderList("blocked-list", blocked, "No blocked tasks.");
   }
 
+  function serializeState() {
+    return `window.WEAVEMAP = ${JSON.stringify(data, null, 2)};\n`;
+  }
+
+  function downloadStateFile(content) {
+    const blob = new Blob([content], { type: "text/javascript;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "state.js";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async function persistState() {
+    const content = serializeState();
+
+    if (typeof window.showOpenFilePicker === "function") {
+      if (!stateFileHandle) {
+        const handles = await window.showOpenFilePicker({
+          multiple: false,
+          types: [{
+            description: "WeaveMap state.js",
+            accept: { "text/javascript": [".js"] }
+          }]
+        });
+        stateFileHandle = handles[0] || null;
+        if (!stateFileHandle || stateFileHandle.name !== "state.js") {
+          stateFileHandle = null;
+          throw new Error("Select this project's weavemap/state.js file.");
+        }
+      }
+
+      const writable = await stateFileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      return "direct";
+    }
+
+    downloadStateFile(content);
+    return "download";
+  }
+
+  function renderNotesList(notes) {
+    if (!notes.length) return '<p class="notes-empty">No handoff notes yet.</p>';
+    return `<ul id="task-notes-list">${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  }
+
   function openTask(taskId) {
     const task = byId.get(taskId);
     if (!task) return;
@@ -471,7 +522,7 @@
     const deps = dependencies(task);
     const unblocks = tasks.filter((candidate) => dependencies(candidate).includes(task.id)).map((candidate) => candidate.id);
     const acceptance = Array.isArray(task.acceptance) ? task.acceptance : [];
-    const notes = Array.isArray(task.notes) ? task.notes : [];
+    if (!Array.isArray(task.notes)) task.notes = [];
 
     detail.innerHTML = `
       <div class="detail-kicker">${escapeHtml(task.id)} · ${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}</div>
@@ -489,8 +540,55 @@
       <h3>Unblocks</h3>
       <p>${unblocks.length ? escapeHtml(unblocks.join(", ")) : "None"}</p>
       ${acceptance.length ? `<h3>Acceptance criteria</h3><ul>${acceptance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-      ${notes.length ? `<h3>Handoff notes</h3><ul>${notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+      <h3>Handoff notes</h3>
+      <div id="task-notes-view">${renderNotesList(task.notes)}</div>
+      <div class="note-editor">
+        <label for="task-note-input">Add a note for the next AI pass</label>
+        <textarea id="task-note-input" rows="3" placeholder="Example: Prioritize the mobile flow first; do not change the backend contract."></textarea>
+        <div class="note-actions">
+          <button id="save-task-note" class="primary-button" type="button">Save note</button>
+          <span id="note-save-status" class="muted" aria-live="polite"></span>
+        </div>
+        <p class="note-help">Human notes are saved with a <code>Human:</code> prefix so the next AI can distinguish them from agent handoff notes. Refresh WeaveMap first if an AI has changed <code>state.js</code> since you opened this page.</p>
+      </div>
     `;
+
+    const input = $("task-note-input");
+    const saveButton = $("save-task-note");
+    const status = $("note-save-status");
+
+    saveButton.addEventListener("click", async () => {
+      const text = input.value.trim();
+      if (!text) {
+        status.textContent = "Write a note first.";
+        input.focus();
+        return;
+      }
+
+      const note = /^Human:\s/i.test(text) ? text : `Human: ${text}`;
+      task.notes.push(note);
+      saveButton.disabled = true;
+      status.textContent = "Saving…";
+
+      try {
+        const mode = await persistState();
+        $("task-notes-view").innerHTML = renderNotesList(task.notes);
+        input.value = "";
+        if (mode === "direct") {
+          status.textContent = "Saved to state.js. The next AI pass will see it.";
+        } else {
+          status.textContent = "Updated state.js downloaded. Replace weavemap/state.js with it to persist the note.";
+        }
+      } catch (error) {
+        task.notes.pop();
+        status.textContent = error?.name === "AbortError"
+          ? "Save cancelled."
+          : (error?.message || "Could not save the note.");
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
+
     $("task-dialog").showModal();
   }
 
