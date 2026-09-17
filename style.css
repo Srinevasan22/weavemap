@@ -17,11 +17,17 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); }
 button { font: inherit; color: inherit; }
+a { color: var(--accent); }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .hidden { display: none !important; }
 .shell { max-width: 1480px; margin: 0 auto; padding: 28px; }
 .topbar { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 20px; }
+.brand-row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .brand { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.version-badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 8px; cursor: pointer; }
+.version-badge:hover { border-color: #aaa9a3; }
+.version-badge strong { font-size: 11px; }
+.version-badge span { color: var(--muted); font-size: 10px; }
 h1 { margin: 5px 0 4px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.035em; }
 h2 { margin: 0; font-size: 17px; }
 h3 { margin: 22px 0 7px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
@@ -94,11 +100,18 @@ dialog { width: min(680px, calc(100vw - 32px)); border: 1px solid var(--line); b
 dialog::backdrop { background: rgba(0,0,0,.25); }
 .dialog-close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; font-size: 26px; cursor: pointer; color: var(--muted); }
 .detail-kicker { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-#task-detail h2 { font-size: 26px; margin: 6px 32px 12px 0; }
+#task-detail h2, .update-detail h2 { font-size: 26px; margin: 6px 32px 12px 0; }
 .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .detail-tags span { background: var(--soft); border-radius: 999px; padding: 4px 7px; font-size: 11px; }
 .preline { white-space: pre-line; }
 #task-detail ul { padding-left: 20px; }
+.update-detail { display: grid; gap: 12px; }
+.update-detail ol { margin: 0; padding-left: 22px; line-height: 1.55; }
+.update-warning { padding: 10px 12px; background: var(--blocked); border: 1px solid #e4b0aa; border-radius: 6px; }
+.update-prompt { margin: 0; max-height: 270px; overflow: auto; white-space: pre-wrap; background: #fafaf8; border: 1px solid var(--line); border-radius: 6px; padding: 12px; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.update-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.primary-button { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 8px 11px; cursor: pointer; font-weight: 700; }
+.primary-button:hover { opacity: .9; }
 
 @media (max-width: 760px) {
   .shell { padding: 16px; }
@@ -107,4 +120,5 @@ dialog::backdrop { background: rgba(0,0,0,.25); }
   .columns, .baseline-grid { grid-template-columns: 1fr; }
   .section-heading { flex-direction: column; }
   .map-grid { grid-template-columns: 110px repeat(var(--wave-count), minmax(160px, 1fr)); }
+  .version-badge { padding: 4px 7px; }
 }
