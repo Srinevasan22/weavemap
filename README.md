@@ -4,9 +4,9 @@
 
 [![WeaveMap Observer Preview](assets/weavemap-observer.png)](https://github.com/Srinevasan22/weavemap)
 
-**Current runtime:** `v1.0.0` · **State schema:** `v4`
+**Current runtime:** `v1.0.1` · **State schema:** `v4`
 
-WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains project state, dependencies, provenance, requirements, decisions, handoff notes, approval gates, verification instructions, requirement coverage, and lightweight completion evidence. The human opens a static observer to see what can run now, what is waiting normally, what genuinely needs intervention, and how work moves through dependency waves.
+WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains project state, dependencies, provenance, requirements, decisions, handoff notes, approval gates, verification instructions, requirement coverage, and lightweight completion evidence. The human opens a static observer to see what can run now, what is waiting normally, what genuinely needs intervention, and how work moves through The Weave by dependency depth.
 
 ## Quick Install
 
@@ -48,7 +48,7 @@ Open `weavemap/index.html` whenever you want to inspect or steer the project.
 
 WeaveMap has two independent versions:
 
-- **Runtime version** — observer/protocol release, currently `v1.0.0`.
+- **Runtime version** — observer/protocol release, currently `v1.0.1`.
 - **State schema version** — durable project-data structure in `state.js`, currently `v4`.
 
 The runtime version is visible in the observer header and exposed as:
@@ -58,7 +58,7 @@ window.WEAVEMAP_RUNTIME
 // { version: "1.0.0", schemaVersion: 4 }
 ```
 
-Runtime `v1.0.0` adds only optional task metadata and derived observer features, so existing schema-v4 projects do **not** require migration.
+Runtime `v1.0.1` adds only optional task metadata and derived observer features, so existing schema-v4 projects do **not** require migration.
 
 ## New or already in progress
 
@@ -118,14 +118,14 @@ You can also tell an AI:
 
 - **Tasks** contain goal, implementation spec, acceptance criteria, priority, effort, status, dependencies, and handoff notes.
 - **Dependencies** are hard execution dependencies.
-- **Waves** are calculated dependency depth, not dates or weeks.
+- **Weave depth** is calculated dependency depth, not dates, weeks, or sequential project stages.
 - **Ready** means the AI can work on it now.
 - **Waiting** means a normal unfinished dependency exists. This is not a problem.
 - **Blocked** means a genuine obstacle independent of normal dependency sequencing.
 - **Needs human** means an explicit human approval gate has reached the point where a user decision is required.
 - **Ready Frontier** is the AI-executable work available now.
 
-The observer includes tooltips so Waiting and Needs Human are not confused with blockers.
+The observer includes tooltips so Waiting and Needs Human are not confused with blockers.\n\n**The Weave** is derived entirely from the host project's `state.js`: workstreams, task IDs, depths, and dependency curves are never hard-coded to a particular project.
 
 ## Human control
 
