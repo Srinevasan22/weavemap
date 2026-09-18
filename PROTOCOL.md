@@ -53,7 +53,7 @@ Safe update procedure:
 7. Delete the backup only after validation succeeds.
 8. Do not modify host application code as part of a WeaveMap runtime update unless separately requested.
 
-Runtime `v1.0.0` remains compatible with state schema `v4`; all new task fields are optional.
+Runtime `v1.0.1` remains compatible with state schema `v4`; all new task fields are optional.
 
 ## Agent and model identity
 
@@ -511,7 +511,7 @@ The observer provides task search across IDs, titles, specs, notes, workstreams,
 
 The following are derived UI signals and should not be manually stored as task fields:
 
-- dependency wave;
+- weave depth (derived dependency depth);
 - Ready / Waiting / Needs human state;
 - active requirement coverage;
 - potential edit-scope collisions;
