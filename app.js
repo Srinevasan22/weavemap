@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const RUNTIME_VERSION = "1.0.0";
+  const RUNTIME_VERSION = "1.0.1";
   const CURRENT_SCHEMA_VERSION = 4;
   const APPROVAL_STATUSES = new Set(["pending", "approved", "rejected"]);
   const VERIFICATION_RESULTS = new Set(["passed", "failed", "not-run", "human-override", "not-applicable"]);
@@ -359,12 +359,11 @@
     const waiting = tasks.filter(isWaiting);
     const needsHuman = tasks.filter(isNeedsHuman);
     const blocked = tasks.filter(isBlocked);
-    const currentCandidates = rankTasks(tasks.filter((task) => (task.status === "active" && !isBlocked(task)) || isReady(task) || isNeedsHuman(task)));
-    const currentWave = currentCandidates.length ? waves.get(currentCandidates[0].id) : null;
+    const workstreamCount = new Set(tasks.map((task) => task.workstream || "General")).size;
 
     if ($("progress-label")) $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
     if ($("progress")) $("progress").textContent = `${progress}%`;
-    if ($("current-wave")) $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
+    if ($("workstream-count")) $("workstream-count").textContent = workstreamCount;
     if ($("ready-count")) $("ready-count").textContent = ready.length;
     if ($("waiting-count")) $("waiting-count").textContent = waiting.length;
     if ($("needs-human-count")) $("needs-human-count").textContent = needsHuman.length;
@@ -651,7 +650,7 @@
 
   function renderExecutionMap() {
     if (typeof window.renderTheWeave === "function") {
-      window.renderTheWeave();
+      window.renderTheWeave(mapDensity);
       return;
     }
     const container = $("execution-map");
@@ -737,7 +736,7 @@
         <span class="list-task-main">
           <span class="task-id">${escapeHtml(task.id)}</span>
           <strong>${escapeHtml(task.title)}</strong>
-          <small>${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}${task.origin ? ` · ${escapeHtml(task.origin)}` : ""}${unmet.length ? ` · waits for ${escapeHtml(unmet.join(", "))}` : ""}${verification ? ` · ${escapeHtml(verification)}` : ""}</small>
+          <small>${escapeHtml(task.workstream || "General")} · Weave depth ${waves.get(task.id) || 0}${task.origin ? ` · ${escapeHtml(task.origin)}` : ""}${unmet.length ? ` · waits for ${escapeHtml(unmet.join(", "))}` : ""}${verification ? ` · ${escapeHtml(verification)}` : ""}</small>
         </span>
         ${task.id === recommendedId ? '<span class="recommended">next</span>' : ""}
       `;
@@ -978,7 +977,7 @@
       : "";
 
     return `
-      <div class="detail-kicker">${escapeHtml(task.id)} · ${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}</div>
+      <div class="detail-kicker">${escapeHtml(task.id)} · ${escapeHtml(task.workstream || "General")} · Weave depth ${waves.get(task.id) || 0}</div>
       <h2>${escapeHtml(task.title)}</h2>
       <div class="detail-tags">
         <span>${escapeHtml(taskState(task))}</span>
@@ -1174,7 +1173,11 @@
     $("hide-done").addEventListener("change", renderExecutionMap);
     $("density-toggle").addEventListener("click", () => {
       mapDensity = mapDensity === "detailed" ? "compact" : "detailed";
-      $("density-toggle").textContent = mapDensity === "compact" ? "Detailed cards" : "Compact cards";
+      const densityButton = $("density-toggle");
+      const densityLabel = densityButton?.querySelector("span");
+      const nextLabel = mapDensity === "compact" ? "Detailed view" : "Compact view";
+      if (densityLabel) densityLabel.textContent = nextLabel;
+      else if (densityButton) densityButton.textContent = nextLabel;
       renderExecutionMap();
     });
 
