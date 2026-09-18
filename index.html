@@ -309,6 +309,11 @@
 
     /* Card Status Themes */
     .weave-card.state-done { background: #f0fdf4; border-color: #bbf7d0; }
+    .weave-card.state-active { background: #eef4ff; border-color: #b8ccff; }
+    .weave-card.state-active .card-status-icon { background: #2563eb; }
+    .weave-card.state-todo { background: #ffffff; border-color: #d7dee8; }
+    .weave-card.state-todo .card-status-icon { background: #98a2b3; }
+    .card-content { min-width: 0; flex: 1; }
     .weave-card.state-done .card-status-icon { background: #10b981; }
     .weave-card.state-ready { background: #eff6ff; border-color: #bfdbfe; }
     .weave-card.state-ready .card-status-icon { background: #3b82f6; }
@@ -420,14 +425,14 @@
         <div class="brand-row">
           <span class="brand">WeaveMap</span>
           <button id="update-button" class="version-badge" type="button" title="View safe update instructions">
-            <strong id="runtime-version">v1.0.0</strong>
+            <strong id="runtime-version">v1.0.1</strong>
             <span id="schema-version">state schema v4</span>
           </button>
         </div>
-        <h1 id="project-name">AimSight</h1>
-        <p id="project-summary">Unified monorepo for ISSF 10m Air Pistol target tracking, analysis, and scoring, comprising a Flutter cross-platform mobile client, Node/Express backend API, and high-precision OpenCV edge scanner engine.</p>
+        <h1 id="project-name">Project</h1>
+        <p id="project-summary" class="muted"></p>
       </div>
-      <div id="project-phase" class="phase">Scanner v2 & Pre-Release Hardening</div>
+      <div id="project-phase" class="phase"></div>
     </header>
 
     <section id="onboarding" class="onboarding hidden"></section>
@@ -436,7 +441,7 @@
     <!-- 6 Metric Cards (Matching style.css) -->
     <section class="stats" aria-label="Project status">
       <article><span id="progress-label">Tracked progress</span><strong id="progress">0%</strong></article>
-      <article><span>Current wave</span><strong id="current-wave">—</strong></article>
+      <article><span>Workstreams</span><strong id="workstream-count">0</strong></article>
       <article><span>Ready</span><strong id="ready-count">0</strong></article>
       <article>
         <span class="stat-label">Waiting <button class="info-tooltip" type="button" aria-label="Waiting means tasks that cannot start yet because dependencies are unfinished. This is normal sequencing, not a blocker." data-tooltip="Tasks that cannot start yet because one or more dependencies are unfinished. This is normal sequencing, not a problem or blocker.">?</button></span>
@@ -576,7 +581,6 @@
           <span class="legend-item"><i class="legend-dot dot-human"></i>Needs human</span>
           <span class="legend-item"><i class="legend-dot dot-blocked"></i>Blocked</span>
           <span class="legend-item"><i class="legend-line line-dep"></i>Dependency</span>
-          <span class="legend-item"><i class="legend-line line-opt"></i>Optional</span>
         </div>
 
         <div class="weave-zoom-pill">
@@ -640,7 +644,7 @@
     <dialog id="update-dialog">
       <button class="dialog-close update-close" aria-label="Close">×</button>
       <div class="update-detail">
-        <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v1.0.0</span></div>
+        <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v1.0.1</span></div>
         <h2>Update WeaveMap safely</h2>
         <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace it with the blank template.</p>
         <ol><li>Back up <code>weavemap/state.js</code>.</li><li>Replace only <code>PROTOCOL.md</code>, <code>index.html</code>, <code>app.js</code>, and <code>style.css</code>.</li><li>Read the new protocol and migrate state only if the schema changed.</li><li>Validate before deleting the backup.</li></ol>
@@ -652,10 +656,9 @@
   </main>
 
   <script src="state.js"></script>
-  <script src="app.js"></script>
   <script>
     /* =========================================================================
-       The Weave Engine: Continuous Workstream Threads & Curves (Matching Image 1)
+       The Weave Engine — project-agnostic, derived entirely from state.js
        ========================================================================= */
     (() => {
       "use strict";
@@ -667,82 +670,148 @@
       const container = document.getElementById("execution-map");
       if (!container) return;
 
-      // Workstream definitions with specific icons & brand colors
-      const WORKSTREAM_CONFIG = {
-        "QA": {
-          color: "#2563eb",
-          bg: "#dbeafe",
-          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'
-        },
-        "Computer Vision": {
-          color: "#8b5cf6",
-          bg: "#f3e8ff",
-          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m14.31 8 5.74 9.94M9.69 8h11.48M7.38 12l5.74-9.94M9.69 16 3.95 6.06M14.31 16H2.83M16.62 12l-5.74 9.94"/></svg>'
-        },
-        "Backend": {
-          color: "#10b981",
-          bg: "#dcfce7",
-          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>'
-        },
-        "Mobile": {
-          color: "#f97316",
-          bg: "#ffedd5",
-          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>'
-        },
-        "Release": {
-          color: "#ef4444",
-          bg: "#fee2e2",
-          icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>'
-        }
-      };
+      const THREAD_PALETTE = [
+        { color: "#2563eb", bg: "#dbeafe" },
+        { color: "#8b5cf6", bg: "#f3e8ff" },
+        { color: "#10b981", bg: "#dcfce7" },
+        { color: "#f97316", bg: "#ffedd5" },
+        { color: "#ef4444", bg: "#fee2e2" },
+        { color: "#0891b2", bg: "#cffafe" },
+        { color: "#db2777", bg: "#fce7f3" },
+        { color: "#65a30d", bg: "#ecfccb" },
+        { color: "#7c3aed", bg: "#ede9fe" },
+        { color: "#ca8a04", bg: "#fef9c3" }
+      ];
 
-      const ORDERED_WORKSTREAMS = ["QA", "Computer Vision", "Backend", "Mobile", "Release"];
+      const escapeHtml = (value = "") => String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      function hashString(value) {
+        let hash = 2166136261;
+        for (const char of String(value)) {
+          hash ^= char.charCodeAt(0);
+          hash = Math.imul(hash, 16777619);
+        }
+        return hash >>> 0;
+      }
+
+      function threadConfig(workstream) {
+        return THREAD_PALETTE[hashString(workstream) % THREAD_PALETTE.length];
+      }
+
+      function threadIcon(color) {
+        return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round">
+          <path d="M4 7h5c3 0 3 10 6 10h5"/>
+          <path d="M4 17h5c3 0 3-10 6-10h5"/>
+        </svg>`;
+      }
+
+      const allWorkstreams = [];
+      const seenWorkstreams = new Set();
+      for (const task of tasks) {
+        const workstream = task.workstream || "General";
+        if (!seenWorkstreams.has(workstream)) {
+          seenWorkstreams.add(workstream);
+          allWorkstreams.push(workstream);
+        }
+      }
 
       const deps = (task) => Array.isArray(task?.dependsOn) ? task.dependsOn : [];
       const unmet = (task) => deps(task).filter((id) => {
-        const d = byId.get(id);
-        return !d || !resolved.has(d.status);
+        const dependency = byId.get(id);
+        return !dependency || !resolved.has(dependency.status);
       });
+      const needsHuman = (task) => task?.humanApproval?.required === true
+        && (task.humanApproval.status || "pending") === "pending"
+        && task.status !== "blocked"
+        && !resolved.has(task.status)
+        && unmet(task).length === 0;
+
       const stateOf = (task) => {
         if (resolved.has(task.status)) return "done";
-        if (task.status === "active") return "active";
         if (task.status === "blocked") return "blocked";
-        if (task.humanApproval?.required && task.humanApproval?.status === "pending") return "approval";
+        if (task.status === "active") return needsHuman(task) ? "approval" : "active";
+        if (needsHuman(task)) return "approval";
         if (task.status === "todo" && unmet(task).length === 0) return "ready";
-        return "waiting";
+        if (task.status === "todo" && unmet(task).length > 0) return "waiting";
+        return "todo";
       };
 
-      // Depth map
       const depthMap = new Map();
       function getDepth(id, stack = new Set()) {
         if (depthMap.has(id)) return depthMap.get(id);
         if (stack.has(id)) return 0;
         stack.add(id);
         const task = byId.get(id);
-        const valid = task ? deps(task).filter((d) => byId.has(d)) : [];
-        const depth = valid.length ? Math.max(...valid.map((d) => getDepth(d, stack))) + 1 : 0;
+        const validDependencies = task ? deps(task).filter((dependencyId) => byId.has(dependencyId)) : [];
+        const depth = validDependencies.length
+          ? Math.max(...validDependencies.map((dependencyId) => getDepth(dependencyId, stack))) + 1
+          : 0;
         stack.delete(id);
         depthMap.set(id, depth);
         return depth;
       }
-      tasks.forEach((t) => getDepth(t.id));
+      tasks.forEach((task) => getDepth(task.id));
 
-      // Visual representation of task status icon (Matching Image 1)
-      const statusIconHtml = (state) => {
+      function statusIconHtml(state) {
         if (state === "done") return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
         if (state === "ready") return '<svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+        if (state === "active") return '<svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="5"/></svg>';
         if (state === "waiting") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>';
         if (state === "approval") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
         if (state === "blocked") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
         return "·";
-      };
+      }
+
+      function taskSearchText(task) {
+        return [
+          task.id,
+          task.title,
+          task.workstream,
+          task.phase,
+          task.status,
+          task.priority,
+          task.origin,
+          task.goal,
+          task.spec,
+          ...(Array.isArray(task.notes) ? task.notes : []),
+          ...(Array.isArray(task.affectedPaths) ? task.affectedPaths : []),
+          ...(Array.isArray(task.requirementIds) ? task.requirementIds : [])
+        ].filter(Boolean).join(" ").toLowerCase();
+      }
+
+      function visibleTasksForControls() {
+        const workstreamFilter = document.getElementById("filter-workstream")?.value || "all";
+        const stateFilter = document.getElementById("filter-state")?.value || "all";
+        const hideDone = document.getElementById("hide-done")?.checked || false;
+        const query = document.getElementById("task-search")?.value.trim().toLowerCase() || "";
+
+        return tasks.filter((task) => {
+          if (workstreamFilter !== "all" && (task.workstream || "General") !== workstreamFilter) return false;
+          if (hideDone && resolved.has(task.status)) return false;
+          if (stateFilter !== "all" && stateOf(task) !== stateFilter) return false;
+          if (query && !taskSearchText(task).includes(query)) return false;
+          return true;
+        });
+      }
+
+      function cardFor(inner, taskId) {
+        return [...inner.querySelectorAll(".weave-card")].find((card) => card.dataset.taskId === taskId) || null;
+      }
 
       let zoomLevel = 1;
       let drawing = false;
+      let lastInner = null;
+      let lastVisibleTasks = [];
 
       function drawWeaveThreads(inner, visibleTasks) {
         const svg = inner.querySelector(".weave-svg-layer");
         if (!svg) return;
+
         const base = inner.getBoundingClientRect();
         const width = inner.scrollWidth;
         const height = inner.scrollHeight;
@@ -752,207 +821,124 @@
         svg.replaceChildren();
 
         const ns = "http://www.w3.org/2000/svg";
-        const addPath = (d, stroke, sw, dash = null, opacity = 1) => {
+        const addPath = (d, stroke, strokeWidth, opacity = 1) => {
           const path = document.createElementNS(ns, "path");
           path.setAttribute("d", d);
           path.setAttribute("fill", "none");
           path.setAttribute("stroke", stroke);
-          path.setAttribute("stroke-width", sw);
+          path.setAttribute("stroke-width", strokeWidth);
           path.setAttribute("stroke-linecap", "round");
           path.setAttribute("stroke-linejoin", "round");
           path.setAttribute("opacity", opacity);
-          if (dash) path.setAttribute("stroke-dasharray", dash);
           svg.appendChild(path);
-          return path;
         };
 
-        const addCircle = (cx, cy, r, fill) => {
-          const circle = document.createElementNS(ns, "circle");
-          circle.setAttribute("cx", cx);
-          circle.setAttribute("cy", cy);
-          circle.setAttribute("r", r);
-          circle.setAttribute("fill", fill);
-          svg.appendChild(circle);
-        };
+        for (const row of inner.querySelectorAll(".weave-row")) {
+          const workstream = row.dataset.workstream;
+          const config = threadConfig(workstream);
+          const rowRect = row.getBoundingClientRect();
+          const laneRect = row.querySelector(".workstream-lane-info")?.getBoundingClientRect();
+          const y = rowRect.top - base.top + rowRect.height / 2;
+          const x0 = laneRect ? laneRect.right - base.left : 180;
+          const xEnd = width - 18;
+          addPath(`M ${x0} ${y} L ${xEnd} ${y}`, "#ffffff", 6, 0.96);
+          addPath(`M ${x0} ${y} L ${xEnd} ${y}`, config.color, 2.2, 0.48);
+        }
 
-        // 1. Draw continuous horizontal thread for each workstream
-        inner.querySelectorAll(".weave-row").forEach((row) => {
-          const ws = row.dataset.workstream;
-          const cfg = WORKSTREAM_CONFIG[ws] || { color: "#94a3b8" };
-          const rect = row.getBoundingClientRect();
-          const y = rect.top - base.top + (rect.height / 2);
-          const x0 = 158; // Start anchor at workstream icon
-          const xEnd = width - 20;
-
-          // Draw origin circle node
-          addCircle(x0, y, 4.5, cfg.color);
-
-          const rowTasks = visibleTasks.filter((t) => (t.workstream || "General") === ws);
-          if (rowTasks.length === 0) {
-            // Empty workstream row (e.g. Release in Image 1): solid line across depths 0-2, dashed in depth 3
-            const splitX = Math.min(xEnd - 180, x0 + 630);
-            addPath(`M ${x0} ${y} L ${splitX} ${y}`, "#ffffff", 5.5, null, 0.95);
-            addPath(`M ${x0} ${y} L ${splitX} ${y}`, cfg.color, 2.2, null, 0.65);
-            addPath(`M ${splitX} ${y} L ${xEnd} ${y}`, cfg.color, 2, "6 5", 0.65);
-          } else if (ws === "Mobile" && rowTasks.length === 2) {
-            // Mobile row with 2 stacked cards in depth 0: Fork from origin node
-            const t5 = inner.querySelector('[data-task-id="T-005"]');
-            const t7 = inner.querySelector('[data-task-id="T-007"]');
-            if (t5 && t7) {
-              const r5 = t5.getBoundingClientRect();
-              const r7 = t7.getBoundingClientRect();
-              const y5 = r5.top - base.top + r5.height / 2;
-              const y7 = r7.top - base.top + r7.height / 2;
-              const tx5 = r5.left - base.left;
-              const tx7 = r7.left - base.left;
-
-              // Fork branch to T-005
-              const dFork5 = `M ${x0} ${y} C ${x0 + 26} ${y}, ${tx5 - 26} ${y5}, ${tx5} ${y5}`;
-              addPath(dFork5, "#ffffff", 6.5, null, 0.95);
-              addPath(dFork5, cfg.color, 2.2, null, 0.7);
-
-              // Fork branch to T-007
-              const dFork7 = `M ${x0} ${y} C ${x0 + 26} ${y}, ${tx7 - 26} ${y7}, ${tx7} ${y7}`;
-              addPath(dFork7, "#ffffff", 6.5, null, 0.95);
-              addPath(dFork7, cfg.color, 2.2, null, 0.7);
-
-              // Continue thread horizontally from T-007 to right edge
-              const sx7 = r7.right - base.left;
-              addPath(`M ${sx7} ${y7} L ${xEnd} ${y7}`, "#ffffff", 5.5, null, 0.95);
-              addPath(`M ${sx7} ${y7} L ${xEnd} ${y7}`, cfg.color, 2.2, null, 0.55);
-            }
-          } else {
-            // Active workstream: Continuous solid line underlay & line
-            addPath(`M ${x0} ${y} L ${xEnd} ${y}`, "#ffffff", 5.5, null, 0.95);
-            addPath(`M ${x0} ${y} L ${xEnd} ${y}`, cfg.color, 2.2, null, 0.55);
-          }
-        });
-
-        // 2. Draw dependency curves between cards
-        const visibleIds = new Set(visibleTasks.map((t) => t.id));
-        visibleTasks.forEach((task) => {
-          const targetCard = inner.querySelector(`[data-task-id="${CSS.escape(task.id)}"]`);
-          if (!targetCard) return;
+        const visibleIds = new Set(visibleTasks.map((task) => task.id));
+        for (const task of visibleTasks) {
+          const targetCard = cardFor(inner, task.id);
+          if (!targetCard) continue;
           const targetRect = targetCard.getBoundingClientRect();
           const tx = targetRect.left - base.left;
           const ty = targetRect.top - base.top + targetRect.height / 2;
 
-          deps(task).forEach((depId) => {
-            if (!visibleIds.has(depId)) return;
-            const sourceCard = inner.querySelector(`[data-task-id="${CSS.escape(depId)}"]`);
-            if (!sourceCard) return;
+          for (const dependencyId of deps(task)) {
+            if (!visibleIds.has(dependencyId)) continue;
+            const sourceCard = cardFor(inner, dependencyId);
+            if (!sourceCard) continue;
             const sourceRect = sourceCard.getBoundingClientRect();
             const sx = sourceRect.right - base.left;
             const sy = sourceRect.top - base.top + sourceRect.height / 2;
-
-            const depTask = byId.get(depId);
-            const depWs = depTask?.workstream || "General";
-            const color = (WORKSTREAM_CONFIG[depWs] || {}).color || "#94a3b8";
-
-            const dx = Math.max(50, Math.abs(tx - sx) * 0.48);
-            const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
-
-            // White halo underneath for crisp intersections
-            addPath(d, "#ffffff", 7, null, 0.98);
-            // Colored bezier thread on top
-            addPath(d, color, 2.6, null, 0.95);
-          });
-        });
-
-        // 3. Draw dashed continuation to Future Work node
-        const t003 = inner.querySelector('[data-task-id="T-003"]');
-        const futureNode = inner.querySelector('.future-work-node');
-        if (t003 && futureNode) {
-          const sRect = t003.getBoundingClientRect();
-          const fRect = futureNode.getBoundingClientRect();
-          const sx = sRect.right - base.left;
-          const sy = sRect.top - base.top + sRect.height / 2;
-          const tx = fRect.left - base.left;
-          const ty = fRect.top - base.top + fRect.height / 2;
-          const dx = Math.max(35, Math.abs(tx - sx) * 0.48);
-          const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
-          addPath(d, "#94a3b8", 1.8, "4 4", 0.75);
+            const sourceTask = byId.get(dependencyId);
+            const sourceConfig = threadConfig(sourceTask?.workstream || "General");
+            const dx = Math.max(42, Math.abs(tx - sx) * 0.46);
+            const curve = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+            addPath(curve, "#ffffff", 7, 0.99);
+            addPath(curve, sourceConfig.color, 2.6, 0.92);
+          }
         }
       }
 
-      function renderTheWeave() {
+      function renderTheWeave(density = "detailed") {
         if (drawing) return;
         drawing = true;
 
-        const workstreamFilter = document.getElementById("filter-workstream")?.value || "all";
-        const stateFilter = document.getElementById("filter-state")?.value || "all";
-        const query = document.getElementById("task-search")?.value.trim().toLowerCase() || "";
+        const visibleTasks = visibleTasksForControls();
+        if (!tasks.length) {
+          container.innerHTML = '<div class="weave-empty">No tasks yet. The AI will populate The Weave when it initializes the project.</div>';
+          drawing = false;
+          return;
+        }
+        if (!visibleTasks.length) {
+          container.innerHTML = '<div class="weave-empty">No tasks match the current search and filters.</div>';
+          drawing = false;
+          return;
+        }
 
-        const visibleTasks = tasks.filter((t) => {
-          if (workstreamFilter !== "all" && (t.workstream || "General") !== workstreamFilter) return false;
-          if (stateFilter !== "all" && stateOf(t) !== stateFilter) return false;
-          if (query && !JSON.stringify(t).toLowerCase().includes(query)) return false;
-          return true;
-        });
-
-        // Workstream rows to display: either all defined, or filtered
-        const workstreamsToRender = workstreamFilter === "all" ? ORDERED_WORKSTREAMS : [workstreamFilter];
-
-        // Max depth displayed: at least 4 (depth 0, 1, 2, 3) to match Image 1
-        const maxDepth = Math.max(3, ...visibleTasks.map((t) => depthMap.get(t.id) || 0));
+        const visibleWorkstreams = allWorkstreams.filter((workstream) =>
+          visibleTasks.some((task) => (task.workstream || "General") === workstream)
+        );
+        const maxDepth = Math.max(0, ...visibleTasks.map((task) => depthMap.get(task.id) || 0));
 
         const inner = document.createElement("div");
-        inner.className = "weave-canvas-inner";
+        inner.className = `weave-canvas-inner${density === "compact" ? " compact" : ""}`;
         inner.style.setProperty("--depth-count", maxDepth + 1);
 
-        // SVG Layer
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.classList.add("weave-svg-layer");
         inner.appendChild(svg);
 
-        // Depth Header Row
         const header = document.createElement("div");
         header.className = "weave-depth-header";
         const corner = document.createElement("div");
         corner.className = "depth-corner-label";
+        corner.textContent = "Workstream";
         header.appendChild(corner);
 
-        for (let d = 0; d <= maxDepth; d += 1) {
+        for (let depth = 0; depth <= maxDepth; depth += 1) {
           const cell = document.createElement("div");
           cell.className = "depth-col-title";
-          let sub = d === 0 ? "Independent (no prerequisites)" : d === 1 ? "Depends on depth 0" : d === 2 ? "Depends on depth 1" : "Depends on depth 2+";
-          cell.innerHTML = `<strong>Weave depth ${d}</strong><span>${sub}</span>`;
+          const subtitle = depth === 0 ? "Independent roots" : "Depends on earlier work";
+          cell.innerHTML = `<strong>Weave depth ${depth}</strong><span>${subtitle}</span>`;
           header.appendChild(cell);
         }
         inner.appendChild(header);
 
-        // Render each workstream row
-        workstreamsToRender.forEach((ws) => {
-          const cfg = WORKSTREAM_CONFIG[ws] || {
-            color: "#64748b",
-            bg: "#f1f5f9",
-            icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>'
-          };
-          const rowTasks = visibleTasks.filter((t) => (t.workstream || "General") === ws);
-
+        for (const workstream of visibleWorkstreams) {
+          const config = threadConfig(workstream);
+          const rowTasks = visibleTasks.filter((task) => (task.workstream || "General") === workstream);
           const row = document.createElement("div");
           row.className = "weave-row";
-          row.dataset.workstream = ws;
+          row.dataset.workstream = workstream;
 
-          // Workstream Left Info Lane
           const lane = document.createElement("div");
           lane.className = "workstream-lane-info";
           lane.innerHTML = `
-            <div class="lane-icon-box" style="background:${cfg.bg};">${cfg.icon}</div>
+            <div class="lane-icon-box" style="background:${config.bg};">${threadIcon(config.color)}</div>
             <div class="lane-text">
-              <strong>${ws}</strong>
+              <strong title="${escapeHtml(workstream)}">${escapeHtml(workstream)}</strong>
               <span>${rowTasks.length} ${rowTasks.length === 1 ? "task" : "tasks"}</span>
             </div>
           `;
           row.appendChild(lane);
 
-          // Render cells for depth 0..maxDepth
-          for (let d = 0; d <= maxDepth; d += 1) {
+          for (let depth = 0; depth <= maxDepth; depth += 1) {
             const cell = document.createElement("div");
             cell.className = "weave-grid-cell";
+            const cellTasks = rowTasks.filter((task) => (depthMap.get(task.id) || 0) === depth);
 
-            const cellTasks = rowTasks.filter((t) => (depthMap.get(t.id) || 0) === d);
-            cellTasks.forEach((task) => {
+            for (const task of cellTasks) {
               const state = stateOf(task);
               const card = document.createElement("button");
               card.type = "button";
@@ -961,90 +947,54 @@
               card.innerHTML = `
                 <span class="card-status-icon">${statusIconHtml(state)}</span>
                 <div class="card-content">
-                  <span class="card-id">${task.id}</span>
-                  <strong class="card-title">${task.title}</strong>
-                  <span class="card-meta">${task.priority || "P2"} · ${task.origin || "repo"}</span>
+                  <span class="card-id">${escapeHtml(task.id)}</span>
+                  <strong class="card-title">${escapeHtml(task.title || "Untitled task")}</strong>
+                  <span class="card-meta">${escapeHtml(task.priority || "P3")} · ${escapeHtml(task.origin || "unattributed")}</span>
                 </div>
               `;
               card.addEventListener("click", () => {
                 if (typeof window.openTask === "function") window.openTask(task.id);
               });
               cell.appendChild(card);
-            });
-
-            // If this is Backend and depth 3, add the "Future work (weave continues...)" node as seen in Image 1
-            if (ws === "Backend" && d === 3 && cellTasks.length === 0) {
-              const futureNode = document.createElement("div");
-              futureNode.className = "future-work-node";
-              futureNode.innerHTML = 'Future work<br><small>(weave continues...)</small>';
-              cell.appendChild(futureNode);
             }
-
             row.appendChild(cell);
           }
-
           inner.appendChild(row);
-        });
+        }
 
         container.replaceChildren(inner);
-
+        lastInner = inner;
+        lastVisibleTasks = visibleTasks;
         requestAnimationFrame(() => {
           drawWeaveThreads(inner, visibleTasks);
           drawing = false;
         });
       }
+
       window.renderTheWeave = renderTheWeave;
 
-      // Populate filter dropdowns
-      const wsSelect = document.getElementById("filter-workstream");
-      if (wsSelect) {
-        wsSelect.innerHTML = '<option value="all">All workstreams</option>' +
-          ORDERED_WORKSTREAMS.map((ws) => `<option value="${ws}">${ws}</option>`).join("");
-        wsSelect.addEventListener("change", () => queueMicrotask(renderTheWeave));
-      }
+      const redraw = () => {
+        if (lastInner) requestAnimationFrame(() => drawWeaveThreads(lastInner, lastVisibleTasks));
+      };
+      window.addEventListener("resize", redraw);
 
-      document.getElementById("filter-state")?.addEventListener("change", () => queueMicrotask(renderTheWeave));
-      document.getElementById("task-search")?.addEventListener("input", () => queueMicrotask(renderTheWeave));
-      document.getElementById("clear-search")?.addEventListener("click", () => {
-        const input = document.getElementById("task-search");
-        if (input) { input.value = ""; queueMicrotask(renderTheWeave); }
-      });
-
-      // Zoom Controls
-      const viewport = document.getElementById("weave-viewport");
       document.getElementById("zoom-in")?.addEventListener("click", () => {
-        zoomLevel = Math.min(1.5, zoomLevel + 0.1);
+        zoomLevel = Math.min(1.4, zoomLevel + 0.1);
         container.style.transform = `scale(${zoomLevel})`;
         container.style.transformOrigin = "top left";
       });
       document.getElementById("zoom-out")?.addEventListener("click", () => {
-        zoomLevel = Math.max(0.6, zoomLevel - 0.1);
+        zoomLevel = Math.max(0.7, zoomLevel - 0.1);
         container.style.transform = `scale(${zoomLevel})`;
         container.style.transformOrigin = "top left";
       });
       document.getElementById("zoom-fit")?.addEventListener("click", () => {
         zoomLevel = 1;
         container.style.transform = "none";
-        queueMicrotask(renderTheWeave);
+        redraw();
       });
-
-      // Compact Toggle
-      document.getElementById("density-toggle")?.addEventListener("click", () => {
-        const inner = container.querySelector(".weave-canvas-inner");
-        if (inner) {
-          inner.classList.toggle("compact");
-          queueMicrotask(() => drawWeaveThreads(inner, tasks));
-        }
-      });
-
-      window.addEventListener("resize", () => {
-        const inner = container.querySelector(".weave-canvas-inner");
-        if (inner) requestAnimationFrame(() => drawWeaveThreads(inner, tasks));
-      });
-
-      // Initial Render
-      renderTheWeave();
     })();
   </script>
+  <script src="app.js"></script>
 </body>
 </html>
