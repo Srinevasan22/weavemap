@@ -9,7 +9,7 @@ if (-not (Test-Path $TargetDir)) {
     New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 }
 
-$RuntimeFiles = @("PROTOCOL.md", "index.html", "app.js", "style.css")
+$RuntimeFiles = @("PROTOCOL.md", "index.html", "app.js", "style.css", "generate_hud.mjs", "generate_hud.ps1")
 
 foreach ($file in $RuntimeFiles) {
     Write-Host "  Downloading $file..."

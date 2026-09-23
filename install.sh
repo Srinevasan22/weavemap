@@ -8,7 +8,7 @@ echo "🗺️  Installing WeaveMap into ./${TARGET_DIR}..."
 
 mkdir -p "$TARGET_DIR"
 
-RUNTIME_FILES=("PROTOCOL.md" "index.html" "app.js" "style.css")
+RUNTIME_FILES=("PROTOCOL.md" "index.html" "app.js" "style.css" "generate_hud.mjs")
 
 for file in "${RUNTIME_FILES[@]}"; do
   echo "  ⬇️  Downloading ${file}..."

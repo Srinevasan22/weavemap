@@ -1,0 +1,29 @@
+{
+  "name": "weavemap",
+  "version": "1.1.0",
+  "description": "Repo-local project management and real-time DAG observer for AI coding agents and human reviewers.",
+  "type": "module",
+  "scripts": {
+    "test": "node generate_hud.mjs --check-only -p .",
+    "hud": "node generate_hud.mjs -p . -a ./weavemap_hud.html",
+    "validate": "node generate_hud.mjs --check-only -p ."
+  },
+  "keywords": [
+    "project-management",
+    "weavemap",
+    "agentic-coding",
+    "dag",
+    "dependencies",
+    "antigravity-plugin"
+  ],
+  "author": "Srinevasan Sothynathan",
+  "license": "MIT",
+  "homepage": "https://github.com/Srinevasan22/weavemap#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Srinevasan22/weavemap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Srinevasan22/weavemap/issues"
+  }
+}

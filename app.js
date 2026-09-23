@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const RUNTIME_VERSION = "1.0.1";
+  const RUNTIME_VERSION = "1.1.0";
   const CURRENT_SCHEMA_VERSION = 4;
   const APPROVAL_STATUSES = new Set(["pending", "approved", "rejected"]);
   const VERIFICATION_RESULTS = new Set(["passed", "failed", "not-run", "human-override", "not-applicable"]);
@@ -359,11 +359,12 @@
     const waiting = tasks.filter(isWaiting);
     const needsHuman = tasks.filter(isNeedsHuman);
     const blocked = tasks.filter(isBlocked);
-    const workstreamCount = new Set(tasks.map((task) => task.workstream || "General")).size;
+    const currentCandidates = rankTasks(tasks.filter((task) => (task.status === "active" && !isBlocked(task)) || isReady(task) || isNeedsHuman(task)));
+    const currentWave = currentCandidates.length ? waves.get(currentCandidates[0].id) : null;
 
     if ($("progress-label")) $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
     if ($("progress")) $("progress").textContent = `${progress}%`;
-    if ($("workstream-count")) $("workstream-count").textContent = workstreamCount;
+    if ($("current-wave")) $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
     if ($("ready-count")) $("ready-count").textContent = ready.length;
     if ($("waiting-count")) $("waiting-count").textContent = waiting.length;
     if ($("needs-human-count")) $("needs-human-count").textContent = needsHuman.length;
@@ -648,74 +649,316 @@
     return "";
   }
 
+  const THREAD_PALETTE = [
+    { color: "#2563eb", bg: "#dbeafe" }, // 0 Royal Blue
+    { color: "#7c3aed", bg: "#ede9fe" }, // 1 Violet
+    { color: "#059669", bg: "#d1fae5" }, // 2 Emerald
+    { color: "#ea580c", bg: "#ffedd5" }, // 3 Orange
+    { color: "#dc2626", bg: "#fee2e2" }, // 4 Red
+    { color: "#0891b2", bg: "#cffafe" }, // 5 Cyan
+    { color: "#db2777", bg: "#fce7f3" }, // 6 Pink
+    { color: "#65a30d", bg: "#ecfccb" }, // 7 Lime
+    { color: "#9333ea", bg: "#f3e8ff" }, // 8 Purple
+    { color: "#d97706", bg: "#fef3c7" }, // 9 Amber
+    { color: "#0d9488", bg: "#ccfbf1" }, // 10 Teal
+    { color: "#c026d3", bg: "#fae8ff" }, // 11 Fuchsia
+    { color: "#1d4ed8", bg: "#eff6ff" }, // 12 Cobalt Blue
+    { color: "#e11d48", bg: "#ffe4e6" }, // 13 Rose
+    { color: "#16a34a", bg: "#dcfce7" }, // 14 Forest Green
+    { color: "#c2410c", bg: "#ffedd5" }, // 15 Rust Orange
+    { color: "#4f46e5", bg: "#e0e7ff" }, // 16 Indigo
+    { color: "#4d7c0f", bg: "#f7fee7" }, // 17 Olive
+    { color: "#0284c7", bg: "#e0f2fe" }, // 18 Sky Blue
+    { color: "#a21caf", bg: "#fdf4ff" }, // 19 Deep Magenta
+    { color: "#ca8a04", bg: "#fef9c3" }, // 20 Goldenrod
+    { color: "#0f766e", bg: "#e6fffa" }, // 21 Dark Teal
+    { color: "#b91c1c", bg: "#fef2f2" }, // 22 Crimson
+    { color: "#6366f1", bg: "#eef2ff" }, // 23 Iris
+    { color: "#22c55e", bg: "#f0fdf4" }, // 24 Spring Green
+    { color: "#b45309", bg: "#fffbeb" }, // 25 Terracotta
+    { color: "#be185d", bg: "#fff1f2" }, // 26 Berry
+    { color: "#475569", bg: "#f1f5f9" }, // 27 Slate
+    { color: "#047857", bg: "#ecfdf5" }, // 28 Jade
+    { color: "#6b21a8", bg: "#faf5ff" }  // 29 Midnight Violet
+  ];
+
+  const workstreamColorMap = new Map();
+  function threadConfig(workstream) {
+    const key = workstream || "General";
+    if (workstreamColorMap.has(key)) return workstreamColorMap.get(key);
+    const fallbackIdx = workstreamColorMap.size;
+    const color = THREAD_PALETTE[fallbackIdx % THREAD_PALETTE.length];
+    workstreamColorMap.set(key, color);
+    return color;
+  }
+
+  function threadIcon(color) {
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h5c3 0 3 10 6 10h5"/>
+      <path d="M4 17h5c3 0 3-10 6-10h5"/>
+    </svg>`;
+  }
+
+  function statusIconHtml(state) {
+    if (state === "done") return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+    if (state === "ready") return '<svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+    if (state === "active") return '<svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="5"/></svg>';
+    if (state === "waiting") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>';
+    if (state === "approval") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    if (state === "blocked") return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    return "·";
+  }
+
+  let zoomLevel = 1;
+  let drawing = false;
+  let lastInner = null;
+  let lastVisibleTasks = [];
+
+  function drawWeaveThreads(inner, visibleTasks) {
+    const svg = inner.querySelector(".weave-svg-layer");
+    if (!svg) return;
+
+    const scale = zoomLevel || 1;
+    const base = inner.getBoundingClientRect();
+    const width = inner.scrollWidth;
+    const height = inner.scrollHeight;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.replaceChildren();
+
+    const ns = "http://www.w3.org/2000/svg";
+    const addPath = (d, stroke, strokeWidth, opacity = 1, extraAttrs = {}) => {
+      const path = document.createElementNS(ns, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", stroke);
+      path.setAttribute("stroke-width", strokeWidth);
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      path.setAttribute("opacity", opacity);
+      for (const [k, v] of Object.entries(extraAttrs)) {
+        path.setAttribute(k, v);
+      }
+      svg.appendChild(path);
+      return path;
+    };
+
+    for (const row of inner.querySelectorAll(".weave-row")) {
+      const workstream = row.dataset.workstream;
+      const config = threadConfig(workstream);
+      const rowRect = row.getBoundingClientRect();
+      const laneRect = row.querySelector(".workstream-lane-info")?.getBoundingClientRect();
+      const y = (rowRect.top - base.top + rowRect.height / 2) / scale;
+      const x0 = laneRect ? (laneRect.right - base.left) / scale : 180;
+      const xEnd = width - 18;
+      addPath(`M ${x0} ${y} L ${xEnd} ${y}`, "#ffffff", 6, 0.96);
+      addPath(`M ${x0} ${y} L ${xEnd} ${y}`, config.color, 2.2, 0.48);
+    }
+
+    const cardMap = new Map();
+    for (const card of inner.querySelectorAll(".weave-card")) {
+      cardMap.set(card.dataset.taskId, card);
+    }
+
+    const visibleIds = new Set(visibleTasks.map((t) => t.id));
+    for (const task of visibleTasks) {
+      const targetCard = cardMap.get(task.id);
+      if (!targetCard) continue;
+      const targetRect = targetCard.getBoundingClientRect();
+      const tx = (targetRect.left - base.left) / scale;
+      const ty = (targetRect.top - base.top + targetRect.height / 2) / scale;
+
+      for (const dependencyId of dependencies(task)) {
+        if (!visibleIds.has(dependencyId)) continue;
+        const sourceCard = cardMap.get(dependencyId);
+        if (!sourceCard) continue;
+        const sourceRect = sourceCard.getBoundingClientRect();
+        const sx = (sourceRect.right - base.left) / scale;
+        const sy = (sourceRect.top - base.top + sourceRect.height / 2) / scale;
+        const sourceTask = byId.get(dependencyId);
+        const sourceConfig = threadConfig(sourceTask?.workstream || "General");
+        const dx = Math.max(42, Math.abs(tx - sx) * 0.46);
+        const curve = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+        addPath(curve, "#ffffff", 7, 0.99);
+        const threadPath = addPath(curve, sourceConfig.color, 2.6, 0.92, {
+          class: "weave-thread"
+        });
+        threadPath.dataset.sourceId = dependencyId;
+        threadPath.dataset.targetId = task.id;
+      }
+    }
+  }
+
+  function highlightThreadsFor(inner, taskId) {
+    const svg = inner.querySelector(".weave-svg-layer");
+    if (!svg) return;
+    const threads = svg.querySelectorAll("path.weave-thread");
+    const prereqIds = new Set();
+    const depIds = new Set();
+
+    threads.forEach((p) => {
+      const isTarget = p.dataset.targetId === taskId;
+      const isSource = p.dataset.sourceId === taskId;
+      if (isTarget) {
+        p.classList.add("highlight-thread");
+        p.classList.remove("dimmed-thread");
+        prereqIds.add(p.dataset.sourceId);
+      } else if (isSource) {
+        p.classList.add("highlight-thread");
+        p.classList.remove("dimmed-thread");
+        depIds.add(p.dataset.targetId);
+      } else {
+        p.classList.add("dimmed-thread");
+        p.classList.remove("highlight-thread");
+      }
+    });
+
+    inner.querySelectorAll(".weave-card").forEach((c) => {
+      const id = c.dataset.taskId;
+      if (prereqIds.has(id)) c.classList.add("highlight-prereq");
+      if (depIds.has(id)) c.classList.add("highlight-dependent");
+    });
+  }
+
+  function resetHighlightThreads(inner) {
+    const svg = inner.querySelector(".weave-svg-layer");
+    if (svg) {
+      svg.querySelectorAll("path.weave-thread").forEach((p) => {
+        p.classList.remove("highlight-thread", "dimmed-thread");
+      });
+    }
+    inner.querySelectorAll(".weave-card").forEach((c) => {
+      c.classList.remove("highlight-prereq", "highlight-dependent");
+    });
+  }
+
   function renderExecutionMap() {
-    if (typeof window.renderTheWeave === "function") {
-      window.renderTheWeave(mapDensity);
+    if (drawing) return;
+    drawing = true;
+
+    const container = $("execution-map");
+    if (!container) {
+      drawing = false;
       return;
     }
-    const container = $("execution-map");
+
     const visibleTasks = tasks.filter(mapFilterAllows);
     if (!tasks.length) {
-      container.innerHTML = '<div class="empty">No tasks yet. The AI will create the execution map when it initializes the project.</div>';
+      container.innerHTML = '<div class="empty">No tasks yet. The AI will populate The Weave when it initializes the project.</div>';
+      drawing = false;
       return;
     }
     if (!visibleTasks.length) {
-      container.innerHTML = '<div class="empty">No tasks match the current search and map filters.</div>';
+      container.innerHTML = '<div class="empty">No tasks match the current search and filters.</div>';
+      drawing = false;
       return;
     }
 
-    const maxWave = Math.max(0, ...visibleTasks.map((task) => waves.get(task.id) || 0));
-    const workstreams = [...new Set(visibleTasks.map((task) => task.workstream || "General"))];
-    const frontierWaves = new Set(tasks.filter((task) => task.status === "active" || isReady(task)).map((task) => waves.get(task.id)));
-    const grid = document.createElement("div");
-    grid.className = `map-grid ${mapDensity === "compact" ? "compact" : ""}`;
-    grid.style.setProperty("--wave-count", maxWave + 1);
-
-    const corner = document.createElement("div");
-    corner.className = "map-header workstream-header";
-    corner.textContent = "Workstream";
-    grid.appendChild(corner);
-
-    for (let wave = 0; wave <= maxWave; wave += 1) {
-      const header = document.createElement("div");
-      header.className = `map-header${frontierWaves.has(wave) ? " frontier-wave" : ""}`;
-      header.innerHTML = `<strong>Wave ${wave}</strong>${frontierWaves.has(wave) ? "<span>frontier</span>" : ""}`;
-      grid.appendChild(header);
+    const allWorkstreams = [];
+    const seenWorkstreams = new Set();
+    for (const task of tasks) {
+      const ws = task.workstream || "General";
+      if (!seenWorkstreams.has(ws)) {
+        seenWorkstreams.add(ws);
+        allWorkstreams.push(ws);
+      }
     }
 
-    for (const workstream of workstreams) {
-      const label = document.createElement("div");
-      label.className = "workstream-label";
-      label.textContent = workstream;
-      grid.appendChild(label);
+    const visibleWorkstreams = allWorkstreams.filter((ws) =>
+      visibleTasks.some((t) => (t.workstream || "General") === ws)
+    );
+    const maxWave = Math.max(0, ...visibleTasks.map((t) => waves.get(t.id) || 0));
 
-      for (let wave = 0; wave <= maxWave; wave += 1) {
+    const inner = document.createElement("div");
+    inner.className = `weave-canvas-inner${mapDensity === "compact" ? " compact" : ""}`;
+    inner.style.setProperty("--depth-count", maxWave + 1);
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.classList.add("weave-svg-layer");
+    inner.appendChild(svg);
+
+    const header = document.createElement("div");
+    header.className = "weave-depth-header";
+    const corner = document.createElement("div");
+    corner.className = "depth-corner-label";
+    corner.textContent = "Workstream";
+    header.appendChild(corner);
+
+    for (let depth = 0; depth <= maxWave; depth += 1) {
+      const cell = document.createElement("div");
+      cell.className = "depth-col-title";
+      const subtitle = depth === 0 ? "Independent roots" : "Depends on earlier work";
+      cell.innerHTML = `<strong>Weave depth ${depth}</strong><span>${subtitle}</span>`;
+      header.appendChild(cell);
+    }
+    inner.appendChild(header);
+
+    for (const workstream of visibleWorkstreams) {
+      const config = threadConfig(workstream);
+      const rowTasks = visibleTasks.filter((t) => (t.workstream || "General") === workstream);
+      const row = document.createElement("div");
+      row.className = "weave-row";
+      row.dataset.workstream = workstream;
+
+      const lane = document.createElement("div");
+      lane.className = "workstream-lane-info";
+      lane.innerHTML = `
+        <div class="lane-icon-box" style="background:${config.bg};">${threadIcon(config.color)}</div>
+        <div class="lane-text">
+          <strong title="${escapeHtml(workstream)}">${escapeHtml(workstream)}</strong>
+          <span>${rowTasks.length} ${rowTasks.length === 1 ? "task" : "tasks"}</span>
+        </div>
+      `;
+      row.appendChild(lane);
+
+      for (let depth = 0; depth <= maxWave; depth += 1) {
         const cell = document.createElement("div");
-        cell.className = `wave-cell${frontierWaves.has(wave) ? " frontier-wave" : ""}`;
-        const cellTasks = visibleTasks.filter((task) => (task.workstream || "General") === workstream && waves.get(task.id) === wave);
+        cell.className = "weave-grid-cell";
+        const cellTasks = rowTasks.filter((t) => (waves.get(t.id) || 0) === depth);
 
         for (const task of cellTasks) {
           const state = taskState(task);
-          const button = document.createElement("button");
-          button.className = `task-card ${state}`;
-          button.type = "button";
-          button.dataset.taskId = task.id;
-          const origin = task.origin ? ` · ${task.origin}` : "";
+          const card = document.createElement("button");
+          card.type = "button";
+          card.className = `weave-card state-${state}`;
+          card.dataset.taskId = task.id;
+
           const verification = verificationBadge(task);
-          button.innerHTML = `
-            <span class="task-id">${escapeHtml(task.id)}</span>
-            <strong>${escapeHtml(task.title)}</strong>
-            <span class="task-meta">${escapeHtml(task.priority || "P3")} · ${"●".repeat(Math.max(1, Math.min(5, task.effort || 3)))}${mapDensity === "detailed" && task.phase ? ` · ${escapeHtml(task.phase)}` : ""}${mapDensity === "detailed" ? escapeHtml(origin) : ""}</span>
-            ${mapDensity === "detailed" && verification ? `<span class="verification-mini">${escapeHtml(verification)}</span>` : ""}
+          card.innerHTML = `
+            <span class="card-status-icon">${statusIconHtml(state)}</span>
+            <div class="card-content">
+              <div class="card-top-row">
+                <span class="card-id">${escapeHtml(task.id)}</span>
+                ${task.effort ? `<span class="card-effort">${task.effort} pt${task.effort > 1 ? 's' : ''}</span>` : ''}
+              </div>
+              <strong class="card-title">${escapeHtml(task.title || "Untitled task")}</strong>
+              <div class="card-footer-meta">
+                <span class="card-meta">${escapeHtml(task.priority || "P3")} · ${escapeHtml(task.origin || "unattributed")}</span>
+                ${verification ? `<span class="card-vbadge" title="${escapeHtml(verification)}">${escapeHtml(verification)}</span>` : ''}
+              </div>
+            </div>
           `;
-          button.addEventListener("click", () => openTask(task.id));
-          cell.appendChild(button);
+          card.addEventListener("click", () => openTask(task.id));
+          card.addEventListener("mouseenter", () => highlightThreadsFor(inner, task.id));
+          card.addEventListener("mouseleave", () => resetHighlightThreads(inner));
+          cell.appendChild(card);
         }
-        grid.appendChild(cell);
+        row.appendChild(cell);
       }
+      inner.appendChild(row);
     }
-    container.replaceChildren(grid);
+
+    container.replaceChildren(inner);
+    lastInner = inner;
+    lastVisibleTasks = visibleTasks;
+    requestAnimationFrame(() => {
+      drawWeaveThreads(inner, visibleTasks);
+      drawing = false;
+    });
   }
+
+  window.renderTheWeave = renderExecutionMap;
 
   function renderList(targetId, list, emptyMessage, recommendedId = null) {
     const target = $(targetId);
@@ -736,7 +979,7 @@
         <span class="list-task-main">
           <span class="task-id">${escapeHtml(task.id)}</span>
           <strong>${escapeHtml(task.title)}</strong>
-          <small>${escapeHtml(task.workstream || "General")} · Weave depth ${waves.get(task.id) || 0}${task.origin ? ` · ${escapeHtml(task.origin)}` : ""}${unmet.length ? ` · waits for ${escapeHtml(unmet.join(", "))}` : ""}${verification ? ` · ${escapeHtml(verification)}` : ""}</small>
+          <small>${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}${task.origin ? ` · ${escapeHtml(task.origin)}` : ""}${unmet.length ? ` · waits for ${escapeHtml(unmet.join(", "))}` : ""}${verification ? ` · ${escapeHtml(verification)}` : ""}</small>
         </span>
         ${task.id === recommendedId ? '<span class="recommended">next</span>' : ""}
       `;
@@ -782,14 +1025,15 @@
   }
 
   function parseStateSource(source) {
-    const match = String(source).match(/^\s*window\.WEAVEMAP\s*=\s*([\s\S]*);\s*$/);
+    const raw = String(source);
+    const match = raw.match(/window\.WEAVEMAP\s*=\s*([\s\S]+?);?\s*$/);
     if (!match) throw new Error("The selected file is not a valid WeaveMap state.js file.");
     const payload = match[1].trim();
     let parsed;
     try {
       parsed = JSON.parse(payload);
     } catch {
-      parsed = Function(`\"use strict\"; return (${payload});`)();
+      parsed = Function(`"use strict"; return (${payload});`)();
     }
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("state.js did not contain a valid WeaveMap state object.");
     return parsed;
@@ -820,16 +1064,22 @@
       task.status = action.status;
       if (action.note) task.notes.push(`Human: ${action.note}`);
       if (action.status === "done") {
+        const now = new Date().toISOString();
+        task.completedAt = now;
         task.completion = {
           by: "Human",
+          at: now,
           verification: {
             result: "human-override",
             note: "Marked done through the WeaveMap observer."
           }
         };
       } else if (action.status === "skipped") {
+        const now = new Date().toISOString();
+        task.completedAt = now;
         task.completion = {
           by: "Human",
+          at: now,
           verification: {
             result: "not-applicable",
             note: "Task skipped through the WeaveMap observer."
@@ -837,6 +1087,7 @@
         };
       } else if (action.status === "todo") {
         delete task.completion;
+        delete task.completedAt;
       }
     }
     return task;
@@ -977,7 +1228,7 @@
       : "";
 
     return `
-      <div class="detail-kicker">${escapeHtml(task.id)} · ${escapeHtml(task.workstream || "General")} · Weave depth ${waves.get(task.id) || 0}</div>
+      <div class="detail-kicker">${escapeHtml(task.id)} · ${escapeHtml(task.workstream || "General")} · Wave ${waves.get(task.id) || 0}</div>
       <h2>${escapeHtml(task.title)}</h2>
       <div class="detail-tags">
         <span>${escapeHtml(taskState(task))}</span>
@@ -1030,6 +1281,9 @@
     renderExecutionMap();
     renderQueues();
     renderSearchResults();
+    if (typeof window.renderSidebarHud === "function") {
+      window.renderSidebarHud();
+    }
   }
 
   function openTask(taskId) {
@@ -1114,30 +1368,62 @@
     $("task-dialog").showModal();
   }
   window.openTask = openTask;
+  window.refreshDerivedUI = refreshDerivedUI;
 
   function safeUpdatePrompt() {
-    return `Update WeaveMap in this project to the latest version from https://github.com/Srinevasan22/weavemap.\n\nThis is a runtime update. Preserve all project-management data.\n\n1. Read the existing weavemap/state.js before changing anything.\n2. Make a temporary backup of weavemap/state.js.\n3. Replace ONLY these runtime files from the latest WeaveMap repository:\n   - weavemap/PROTOCOL.md\n   - weavemap/index.html\n   - weavemap/app.js\n   - weavemap/style.css\n4. NEVER replace weavemap/state.js with the source repository template.\n5. Read the new weavemap/PROTOCOL.md completely.\n6. If the new runtime expects a newer state schema, migrate the EXISTING state.js in place while preserving all project knowledge.\n7. Validate the state in the WeaveMap observer and resolve all validation errors.\n8. Only after validation succeeds, remove the temporary state backup.\n9. Do not change application code as part of the WeaveMap update.\n\nReport the old runtime/schema version, the new runtime/schema version, whether a state migration was required, and whether validation passed.`;
+    return `Update WeaveMap in this project to the latest version from https://github.com/Srinevasan22/weavemap.\n\nThis is a runtime update. Preserve all project-management data.\n\n1. Read the existing weavemap/state.js before changing anything.\n2. Make a temporary backup of weavemap/state.js.\n3. Replace ONLY these runtime files from the latest WeaveMap repository:\n   - weavemap/PROTOCOL.md\n   - weavemap/index.html\n   - weavemap/app.js\n   - weavemap/style.css\n   - weavemap/generate_hud.mjs\n   - weavemap/generate_hud.ps1\n4. NEVER replace weavemap/state.js with the source repository template.\n5. Read the new weavemap/PROTOCOL.md completely.\n6. If the new runtime expects a newer state schema, migrate the EXISTING state.js in place while preserving all project knowledge.\n7. Validate the state using node weavemap/generate_hud.mjs --check-only -p . (or powershell -File weavemap/generate_hud.ps1 -CheckOnly) and resolve all validation errors.\n8. Only after validation succeeds, remove the temporary state backup.\n9. Do not change application code as part of the WeaveMap update.\n\nReport the old runtime/schema version, the new runtime/schema version, whether a state migration was required, and whether validation passed.`;
   }
 
-  function copyText(value) {
-    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
-    return new Promise((resolve, reject) => {
-      const textarea = document.createElement("textarea");
-      textarea.value = value;
-      textarea.setAttribute("readonly", "");
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
+  async function copyText(value, fallbackContainer) {
+    // Strategy 1: Modern navigator.clipboard API
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
       try {
-        const copied = document.execCommand("copy");
-        textarea.remove();
-        copied ? resolve() : reject(new Error("Copy command was not accepted."));
-      } catch (error) {
-        textarea.remove();
-        reject(error);
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch {
+        // Fall through to Strategy 2 (common in iframe/sidepane or unprivileged context)
       }
-    });
+    }
+
+    // Strategy 2: Hidden textarea inside open dialog or body
+    const mountPoint = fallbackContainer || document.querySelector("dialog[open]") || document.body;
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "absolute";
+    textarea.style.left = "-9999px";
+    textarea.style.top = "0";
+    textarea.style.opacity = "0";
+    mountPoint.appendChild(textarea);
+    textarea.focus({ preventScroll: true });
+    textarea.select();
+    textarea.setSelectionRange(0, value.length);
+
+    let succeeded = false;
+    try {
+      succeeded = document.execCommand("copy");
+    } catch {
+      succeeded = false;
+    } finally {
+      textarea.remove();
+    }
+
+    if (succeeded) return true;
+
+    // Strategy 3: Select prompt element directly and copy
+    const promptEl = $("update-prompt");
+    if (promptEl) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(promptEl);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      try {
+        if (document.execCommand("copy")) return true;
+      } catch {}
+    }
+
+    throw new Error("Clipboard copy was blocked by environment permissions.");
   }
 
   function setupDialogs() {
@@ -1149,19 +1435,45 @@
 
     const updateDialog = $("update-dialog");
     const promptText = safeUpdatePrompt();
-    $("update-prompt").textContent = promptText;
+    const promptEl = $("update-prompt");
+    promptEl.textContent = promptText;
+
+    promptEl.addEventListener("click", () => {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(promptEl);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
+
     $("update-button").addEventListener("click", () => updateDialog.showModal());
     updateDialog.querySelector(".update-close").addEventListener("click", () => updateDialog.close());
     updateDialog.addEventListener("click", (event) => {
       if (event.target === updateDialog) updateDialog.close();
     });
-    $("copy-update-prompt").addEventListener("click", async () => {
-      const status = $("copy-status");
+
+    const copyBtn = $("copy-update-prompt");
+    const copyStatus = $("copy-status");
+
+    copyBtn.addEventListener("click", async () => {
       try {
-        await copyText(promptText);
-        status.textContent = "Copied.";
+        await copyText(promptText, updateDialog);
+        copyStatus.textContent = "Copied to clipboard!";
+        copyStatus.style.color = "#10b981";
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => {
+          copyBtn.textContent = "Copy update prompt";
+          copyStatus.textContent = "";
+        }, 3000);
       } catch {
-        status.textContent = "Copy failed — select the prompt manually.";
+        // Automatically select the text so the user can just press Ctrl+C / Cmd+C
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(promptEl);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        copyStatus.textContent = "Prompt selected — press Ctrl+C to copy.";
+        copyStatus.style.color = "var(--muted)";
       }
     });
   }
@@ -1171,13 +1483,22 @@
     $("filter-workstream").addEventListener("change", renderExecutionMap);
     $("filter-state").addEventListener("change", renderExecutionMap);
     $("hide-done").addEventListener("change", renderExecutionMap);
-    $("density-toggle").addEventListener("click", () => {
+    $("density-toggle")?.addEventListener("click", () => {
       mapDensity = mapDensity === "detailed" ? "compact" : "detailed";
-      const densityButton = $("density-toggle");
-      const densityLabel = densityButton?.querySelector("span");
-      const nextLabel = mapDensity === "compact" ? "Detailed view" : "Compact view";
-      if (densityLabel) densityLabel.textContent = nextLabel;
-      else if (densityButton) densityButton.textContent = nextLabel;
+      const isCompact = mapDensity === "compact";
+      if (typeof window.setWeaveDensity === "function") {
+        window.setWeaveDensity(isCompact);
+      } else {
+        const btn = $("density-toggle");
+        if (btn) {
+          btn.classList.toggle("active", isCompact);
+          btn.title = isCompact ? "Switch to detailed card view" : "Switch to compact card view";
+          const icon = isCompact
+            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>';
+          btn.innerHTML = `${icon}<span>${isCompact ? "Detailed view" : "Compact view"}</span>`;
+        }
+      }
       renderExecutionMap();
     });
 
@@ -1192,6 +1513,160 @@
       renderExecutionMap();
       renderSearchResults();
       $("task-search").focus();
+    });
+
+    const moreBtn = $("btn-more-options");
+    const moreDropdown = $("more-menu-dropdown");
+    const menuHideDone = $("menu-hide-done");
+
+    if (moreBtn && moreDropdown) {
+      moreBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const isHidden = moreDropdown.classList.contains("hidden");
+        if (isHidden) {
+          if (menuHideDone && $("hide-done")) {
+            menuHideDone.checked = $("hide-done").checked;
+          }
+          moreDropdown.classList.remove("hidden");
+          moreBtn.classList.add("active");
+          moreBtn.setAttribute("aria-expanded", "true");
+        } else {
+          moreDropdown.classList.add("hidden");
+          moreBtn.classList.remove("active");
+          moreBtn.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!moreDropdown.contains(event.target) && event.target !== moreBtn) {
+          moreDropdown.classList.add("hidden");
+          moreBtn.classList.remove("active");
+          moreBtn.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      menuHideDone?.addEventListener("change", (event) => {
+        if ($("hide-done")) {
+          $("hide-done").checked = event.target.checked;
+          renderExecutionMap();
+        }
+      });
+
+      $("menu-download-state")?.addEventListener("click", () => {
+        moreDropdown.classList.add("hidden");
+        moreBtn.classList.remove("active");
+        const exportContent = "window.WEAVEMAP = " + JSON.stringify(data, null, 2) + ";\n";
+        downloadStateFile(exportContent);
+      });
+
+      $("menu-reset-zoom")?.addEventListener("click", () => {
+        moreDropdown.classList.add("hidden");
+        moreBtn.classList.remove("active");
+        document.getElementById("zoom-fit")?.click();
+      });
+
+      $("menu-open-update")?.addEventListener("click", () => {
+        moreDropdown.classList.add("hidden");
+        moreBtn.classList.remove("active");
+        $("update-dialog")?.showModal();
+      });
+
+      $("menu-toggle-fullscreen")?.addEventListener("click", () => {
+        moreDropdown.classList.add("hidden");
+        moreBtn.classList.remove("active");
+        toggleAppFullscreen();
+      });
+
+      $("menu-toggle-theme")?.addEventListener("click", () => {
+        moreDropdown.classList.add("hidden");
+        moreBtn.classList.remove("active");
+        const current = document.documentElement.getAttribute("data-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        const next = current === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("weavemap_theme", next);
+      });
+    }
+
+    function toggleAppFullscreen() {
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+      if (!isFs) {
+        const target = document.documentElement;
+        const req = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+        if (req) {
+          req.call(target).catch((err) => console.warn("Fullscreen request error:", err));
+        }
+      } else {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        if (exit) {
+          exit.call(document).catch(() => {});
+        }
+      }
+    }
+
+    $("btn-fullscreen-toggle")?.addEventListener("click", toggleAppFullscreen);
+
+    function handleAppFullscreenChange() {
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+      document.body.classList.toggle("is-fullscreen", isFs);
+      const fsBtn = $("btn-fullscreen-toggle");
+      if (fsBtn) {
+        fsBtn.classList.toggle("active", isFs);
+        const enterIcon = fsBtn.querySelector(".icon-enter-fs");
+        const exitIcon = fsBtn.querySelector(".icon-exit-fs");
+        const label = fsBtn.querySelector(".fs-label");
+        if (enterIcon && exitIcon) {
+          enterIcon.classList.toggle("hidden", isFs);
+          exitIcon.classList.toggle("hidden", !isFs);
+        }
+        if (label) {
+          label.textContent = isFs ? "Exit full screen" : "Full screen";
+        }
+        fsBtn.title = isFs ? "Exit full screen (Esc)" : "Full screen mode (F11)";
+      }
+      if (lastInner) {
+        requestAnimationFrame(() => drawWeaveThreads(lastInner, lastVisibleTasks));
+      }
+    }
+
+    document.addEventListener("fullscreenchange", handleAppFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleAppFullscreenChange);
+
+    const savedTheme = localStorage.getItem("weavemap_theme");
+    if (savedTheme) {
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    }
+
+    $("zoom-in")?.addEventListener("click", () => {
+      zoomLevel = Math.min(1.4, zoomLevel + 0.1);
+      const container = $("execution-map");
+      if (container) {
+        container.style.transform = `scale(${zoomLevel})`;
+        container.style.transformOrigin = "top left";
+      }
+      if (lastInner) requestAnimationFrame(() => drawWeaveThreads(lastInner, lastVisibleTasks));
+    });
+
+    $("zoom-out")?.addEventListener("click", () => {
+      zoomLevel = Math.max(0.7, zoomLevel - 0.1);
+      const container = $("execution-map");
+      if (container) {
+        container.style.transform = `scale(${zoomLevel})`;
+        container.style.transformOrigin = "top left";
+      }
+      if (lastInner) requestAnimationFrame(() => drawWeaveThreads(lastInner, lastVisibleTasks));
+    });
+
+    $("zoom-fit")?.addEventListener("click", () => {
+      zoomLevel = 1;
+      const container = $("execution-map");
+      if (container) {
+        container.style.transform = "none";
+      }
+      if (lastInner) requestAnimationFrame(() => drawWeaveThreads(lastInner, lastVisibleTasks));
+    });
+
+    window.addEventListener("resize", () => {
+      if (lastInner) requestAnimationFrame(() => drawWeaveThreads(lastInner, lastVisibleTasks));
     });
   }
 

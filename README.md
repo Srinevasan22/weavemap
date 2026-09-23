@@ -4,9 +4,9 @@
 
 [![WeaveMap Observer Preview](assets/weavemap-observer.png)](https://github.com/Srinevasan22/weavemap)
 
-**Current runtime:** `v1.0.1` · **State schema:** `v4`
+**Current runtime:** `v1.1.0` · **State schema:** `v4`
 
-WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains project state, dependencies, provenance, requirements, decisions, handoff notes, approval gates, verification instructions, requirement coverage, and lightweight completion evidence. The human opens a static observer to see what can run now, what is waiting normally, what genuinely needs intervention, and how work moves through The Weave by dependency depth.
+WeaveMap is a tiny, repo-local project manager designed primarily for AI coding agents. The AI maintains project state, dependencies, provenance, requirements, decisions, handoff notes, approval gates, verification instructions, requirement coverage, and lightweight completion evidence. The human opens a static observer or live IDE side-pane HUD to see what can run now, what is waiting normally, what genuinely needs intervention, and how work moves through dependency waves.
 
 ## Quick Install
 
@@ -34,7 +34,8 @@ your-project/
     ├── state.js
     ├── index.html
     ├── app.js
-    └── style.css
+    ├── style.css
+    └── generate_hud.mjs
 ```
 </details>
 
@@ -42,23 +43,109 @@ Then tell any coding AI:
 
 > Read `weavemap/PROTOCOL.md` and use WeaveMap to manage this project as you work.
 
-Open `weavemap/index.html` whenever you want to inspect or steer the project.
+Open `weavemap/index.html` whenever you want to inspect or steer the project in a browser, or run `generate_hud.mjs` for the live Antigravity side-pane HUD.
+
+## Antigravity Native Integration
+
+WeaveMap can be used natively in [Google Antigravity](https://antigravity.google) as a registered **Skill** and **Plugin**, giving the agent built-in instructions to initialize, update, and maintain WeaveMap across any project.
+
+### 1. Global Plugin (Machine-Wide)
+
+Install WeaveMap once so it is available across all workspaces on your machine:
+
+1. Clone or copy the plugin into your config directory:
+   - **Windows**: `%USERPROFILE%\.gemini\config\plugins\weavemap\`
+   - **macOS / Linux**: `~/.gemini/config/plugins/weavemap/`
+   ```bash
+   git clone https://github.com/Srinevasan22/weavemap.git ~/.gemini/config/plugins/weavemap
+   ```
+2. The bundled `plugin.json` declares the plugin manifest:
+   ```json
+   {
+     "name": "weavemap",
+     "version": "1.1.0",
+     "description": "Repo-local project management and real-time DAG observer for AI coding agents and human reviewers.",
+     "license": "MIT",
+     "homepage": "https://github.com/Srinevasan22/weavemap#readme"
+   }
+   ```
+3. In `~/.gemini/config/config.json`, enable the plugin:
+   ```json
+   {
+     "plugins": {
+       "weavemap": { "enabled": true }
+     }
+   }
+   ```
+WeaveMap will immediately appear in the **Customizations** UI under **Skills** with the badge `[Global] [Plugin: weavemap]`.
+
+### 2. Live Side-Pane HUD & Schema Validator
+
+WeaveMap includes a zero-dependency cross-platform generator (`generate_hud.mjs`) compatible with macOS, Linux, and Windows:
+
+- **Generate HUD Artifact**:
+  ```bash
+  node generate_hud.mjs -p . -a ./weavemap_hud.html
+  ```
+- **Validate State & DAG (CI check)**:
+  ```bash
+  node generate_hud.mjs --check-only -p .
+  ```
+  Checks Schema v4 contract, valid statuses, non-existent dependency IDs, and detects dependency cycles (e.g. `T-001 -> T-002 -> T-001`).
+
+### 3. Workspace Integration (Team & Repository Scope)
+
+To share WeaveMap natively with teammates on a specific project without requiring machine-wide installation:
+
+1. Commit the skill directly to the repository:
+   ```text
+   your-project/
+   ├── .agents/
+   │   └── skills/
+   │       └── weavemap/
+   │           ├── SKILL.md
+   │           └── resources/
+   └── weavemap/
+       ├── PROTOCOL.md
+       ├── index.html
+       ├── app.js
+       ├── style.css
+       └── state.js
+   ```
+2. Anyone opening the repository in Antigravity will automatically have the `weavemap` skill loaded with a `[Workspace]` badge.
+
+### 4. How Updates Work
+
+- **Updating the Plugin**: Update the runtime files (`PROTOCOL.md`, `index.html`, `app.js`, `style.css`, `generate_hud.mjs`, `generate_hud.ps1`) in the plugin's `resources/` directory and increment the version in `plugin.json`.
+- **Project Data Safety**: In accordance with the protocol, agents never overwrite `weavemap/state.js` during updates. Only the runtime files are replaced, preserving all durable project tasks, dependencies, and evidence.
+
+### 5. Sharing Skills with Others
+
+- **Repository Tracking (Recommended)**: Check `.agents/skills/weavemap/` into your git repository. Teammates who clone the repository get the skill automatically.
+- **Shared Config (`plugins.json` / `skills.json`)**: Teams maintaining a shared tools directory or submodule can declare it in `.agents/plugins.json` or `~/.gemini/config/plugins.json`:
+  ```json
+  {
+    "entries": [
+      { "path": "path/to/shared/plugins/weavemap" }
+    ]
+  }
+  ```
 
 ## Versioning
 
 WeaveMap has two independent versions:
 
-- **Runtime version** — observer/protocol release, currently `v1.0.1`.
+- **Runtime version** — observer/protocol release, currently `v1.1.0`.
 - **State schema version** — durable project-data structure in `state.js`, currently `v4`.
 
 The runtime version is visible in the observer header and exposed as:
 
 ```js
 window.WEAVEMAP_RUNTIME
-// { version: "1.0.0", schemaVersion: 4 }
+// { version: "1.1.0", schemaVersion: 4 }
 ```
 
-Runtime `v1.0.1` adds only optional task metadata and derived observer features, so existing schema-v4 projects do **not** require migration.
+Runtime `v1.1.0` adds only optional task metadata, cross-platform HUD generation, and derived observer features, so existing schema-v4 projects do **not** require migration.
 
 ## New or already in progress
 

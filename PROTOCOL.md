@@ -1,6 +1,6 @@
 # WeaveMap protocol
 
-**Runtime version:** `1.0.0`  
+**Runtime version:** `1.1.0`  
 **Current state schema:** `4`
 
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
@@ -32,6 +32,8 @@ weavemap/PROTOCOL.md
 weavemap/index.html
 weavemap/app.js
 weavemap/style.css
+weavemap/generate_hud.mjs
+weavemap/generate_hud.ps1
 ```
 
 Durable project data:
@@ -42,18 +44,18 @@ weavemap/state.js
 
 Never replace an existing project's `state.js` with the blank source template during an update.
 
-Safe update procedure:
+Safe update procedure (triggered by "update weavemap" or manual upgrade):
 
-1. Read and temporarily back up the current `state.js`.
-2. Replace only the four runtime files.
+1. Read and temporarily back up the current `state.js` to `state.js.bak`.
+2. Replace only the runtime engine files listed above.
 3. Read the newly installed protocol.
 4. Compare the project `schemaVersion` with the runtime schema.
 5. Migrate the existing state in place only if required, preserving all project knowledge.
-6. Validate the observer.
+6. Validate state via `node weavemap/generate_hud.mjs --check-only -p .`.
 7. Delete the backup only after validation succeeds.
 8. Do not modify host application code as part of a WeaveMap runtime update unless separately requested.
 
-Runtime `v1.0.1` remains compatible with state schema `v4`; all new task fields are optional.
+Runtime `v1.1.0` remains compatible with state schema `v4`; all new task fields are optional.
 
 ## Agent and model identity
 
