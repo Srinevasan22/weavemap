@@ -34,6 +34,22 @@
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
+  function safeGetStorage(key, fallback = null) {
+    try {
+      return typeof window !== "undefined" && window.localStorage ? window.localStorage.getItem(key) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function safeSetStorage(key, value) {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(key, value);
+      }
+    } catch (_) {}
+  }
+
   function dependencies(task) {
     return Array.isArray(task.dependsOn) ? task.dependsOn : [];
   }
@@ -1589,7 +1605,7 @@
         const current = document.documentElement.getAttribute("data-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
         const next = current === "dark" ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", next);
-        localStorage.setItem("weavemap_theme", next);
+        safeSetStorage("weavemap_theme", next);
       });
     }
 
@@ -1637,7 +1653,7 @@
     document.addEventListener("fullscreenchange", handleAppFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleAppFullscreenChange);
 
-    const savedTheme = localStorage.getItem("weavemap_theme");
+    const savedTheme = safeGetStorage("weavemap_theme");
     if (savedTheme) {
       document.documentElement.setAttribute("data-theme", savedTheme);
     }

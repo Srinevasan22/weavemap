@@ -181,6 +181,12 @@ body.hud-full-canvas-mode .shell {
 }
 
 /* Dialog Modals in HUD Mode */
+dialog:not([open]) {
+  display: none !important;
+}
+dialog[open] {
+  display: block !important;
+}
 dialog {
   position: fixed !important;
   inset: 0 !important;
@@ -842,6 +848,110 @@ body.hud-mode-active.is-fullscreen .weave-panel {
 body.hud-mode-active.is-fullscreen #weave-viewport {
   min-height: calc(100vh - 180px);
 }
+
+/* Responsive mobile layout (< 600px) */
+@media (max-width: 600px) {
+  .hud-top-switch-bar {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  .hud-brand-pill {
+    gap: 5px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+  .hud-brand-title {
+    font-size: 10.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hud-phase-chip {
+    display: none;
+  }
+  .hud-switch-btns {
+    padding: 2px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .hud-switch-btn {
+    font-size: 10.5px;
+    padding: 4px 6px;
+    gap: 3px;
+  }
+  .hud-switch-btn .hud-fs-label {
+    display: none;
+  }
+  .hud-switch-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  #hud-sidebar-view {
+    padding: 8px 10px 24px;
+    gap: 10px;
+    max-width: 100%;
+  }
+  .hud-metrics-card {
+    padding: 10px 12px;
+  }
+  .hud-stat-chips {
+    gap: 4px;
+  }
+  .hud-stat-chip {
+    padding: 4px 2px;
+    min-width: 0;
+  }
+  .hud-stat-val {
+    font-size: 13px;
+  }
+  .hud-stat-lbl {
+    font-size: 8px;
+  }
+  .hud-card {
+    padding: 8px 10px;
+  }
+  .hud-card-id-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .hud-card-title {
+    font-size: 12px;
+  }
+  .hud-cmd-pill {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+  .hud-acceptance-box {
+    padding: 7px 9px;
+  }
+  .hud-acceptance-list {
+    padding-left: 14px;
+    font-size: 10px;
+  }
+  .hud-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .weave-canvas-wrapper {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 380px) {
+  .hud-top-switch-bar {
+    padding: 5px 6px;
+    gap: 4px;
+  }
+  .hud-brand-title {
+    display: none;
+  }
+  .hud-switch-btn {
+    padding: 3px 5px;
+    font-size: 9.5px;
+  }
+}
 '@
 
 $hudHtmlBar = @'
@@ -1371,13 +1481,21 @@ $hudScript = @'
 
   window.renderSidebarHud = renderSidebarHud;
 
-  window.addEventListener('DOMContentLoaded', () => {
-    document.body.classList.add('hud-mode-active');
-    setHudMode('cockpit');
-  });
+  function initHud() {
+    try {
+      document.body.classList.add('hud-mode-active');
+      setHudMode('cockpit');
+    } catch (err) {
+      console.error('WeaveMap HUD initialization error:', err);
+    }
+  }
+
+  // Immediate init (body and all DOM nodes are parsed)
+  initHud();
+
+  window.addEventListener('DOMContentLoaded', initHud);
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    document.body.classList.add('hud-mode-active');
-    setHudMode('cockpit');
+    initHud();
   }
 </script>
 '@
@@ -1385,7 +1503,7 @@ $hudScript = @'
 $bundled = $index.Replace('<link rel="stylesheet" href="style.css">', "<style>`n$style`n$hudCss`n</style>")
 $bundled = $bundled.Replace('<script src="state.js"></script>', "<script>`n$state`n</script>")
 $bundled = $bundled.Replace('<script src="app.js"></script>', "<script>`n$app`n</script>`n$hudScript")
-$bundled = $bundled.Replace('<body>', "<body>`n$hudHtmlBar")
+$bundled = $bundled.Replace('<body>', "<body class=`"hud-mode-active`">`n$hudHtmlBar")
 
 if (-not $ArtifactPath) {
     $dest = Join-Path (Get-Location) "weavemap_hud.html"
