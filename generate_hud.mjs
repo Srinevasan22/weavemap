@@ -946,20 +946,26 @@ const HUD_SCRIPT = `
     renderSidebarHud();
   }
 
+  let cachedWeavePanel = null;
+
+  function getWeavePanel() {
+    if (!cachedWeavePanel || !cachedWeavePanel.isConnected) {
+      cachedWeavePanel = document.querySelector('.weave-panel') || cachedWeavePanel;
+    }
+    return cachedWeavePanel;
+  }
+
   function setHudMode(mode) {
     const cockpitBtn = document.getElementById('btn-hud-cockpit');
     const canvasBtn = document.getElementById('btn-hud-canvas');
-    const panel = document.querySelector('.weave-panel');
+    const panel = getWeavePanel();
     const slot = document.getElementById('hud-canvas-slot');
-    const home = document.getElementById('weave-panel-home');
+    const home = document.getElementById('weave-panel-home') || document.querySelector('.shell') || document.body;
 
     if (mode === 'cockpit') {
       cockpitBtn?.classList.add('active');
       canvasBtn?.classList.remove('active');
       document.body.classList.remove('hud-full-canvas-mode');
-      if (slot && panel && !slot.contains(panel)) {
-        slot.appendChild(panel);
-      }
       renderSidebarHud();
     } else {
       canvasBtn?.classList.add('active');
@@ -1112,9 +1118,16 @@ const HUD_SCRIPT = `
 
   function mountCanvasSection() {
     const slot = document.getElementById('hud-canvas-slot');
-    const panel = document.querySelector('.weave-panel');
-    if (!document.body.classList.contains('hud-full-canvas-mode')) {
-      if (slot && panel && !slot.contains(panel)) {
+    const home = document.getElementById('weave-panel-home') || document.querySelector('.shell') || document.body;
+    const panel = getWeavePanel();
+    if (!panel) return;
+
+    if (document.body.classList.contains('hud-full-canvas-mode')) {
+      if (home && !home.contains(panel)) {
+        home.appendChild(panel);
+      }
+    } else {
+      if (slot && !slot.contains(panel)) {
         slot.appendChild(panel);
       }
     }
@@ -1311,6 +1324,13 @@ const HUD_SCRIPT = `
         <div id="hud-canvas-slot"></div>
       </div>
     \`;
+
+    // Safeguard .weave-panel so it is NOT destroyed when container.innerHTML is rewritten
+    const panel = getWeavePanel();
+    const home = document.getElementById('weave-panel-home') || document.querySelector('.shell') || document.body;
+    if (panel && container.contains(panel)) {
+      home.appendChild(panel);
+    }
 
     container.innerHTML = html;
     mountCanvasSection();

@@ -715,13 +715,27 @@
   let lastVisibleTasks = [];
 
   function drawWeaveThreads(inner, visibleTasks) {
+    if (!inner || !inner.isConnected) return;
     const svg = inner.querySelector(".weave-svg-layer");
     if (!svg) return;
 
-    const scale = zoomLevel || 1;
     const base = inner.getBoundingClientRect();
     const width = inner.scrollWidth;
     const height = inner.scrollHeight;
+
+    if (base.width === 0 || width === 0 || height === 0) {
+      requestAnimationFrame(() => {
+        if (inner.isConnected) {
+          const check = inner.getBoundingClientRect();
+          if (check.width > 0 && inner.scrollWidth > 0) {
+            drawWeaveThreads(inner, visibleTasks);
+          }
+        }
+      });
+      return;
+    }
+
+    const scale = zoomLevel || 1;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("width", width);
     svg.setAttribute("height", height);
@@ -834,24 +848,16 @@
   }
 
   function renderExecutionMap() {
-    if (drawing) return;
-    drawing = true;
-
     const container = $("execution-map");
-    if (!container) {
-      drawing = false;
-      return;
-    }
+    if (!container) return;
 
     const visibleTasks = tasks.filter(mapFilterAllows);
     if (!tasks.length) {
       container.innerHTML = '<div class="empty">No tasks yet. The AI will populate The Weave when it initializes the project.</div>';
-      drawing = false;
       return;
     }
     if (!visibleTasks.length) {
       container.innerHTML = '<div class="empty">No tasks match the current search and filters.</div>';
-      drawing = false;
       return;
     }
 
@@ -954,11 +960,11 @@
     lastVisibleTasks = visibleTasks;
     requestAnimationFrame(() => {
       drawWeaveThreads(inner, visibleTasks);
-      drawing = false;
     });
   }
 
   window.renderTheWeave = renderExecutionMap;
+  window.renderExecutionMap = renderExecutionMap;
 
   function renderList(targetId, list, emptyMessage, recommendedId = null) {
     const target = $(targetId);
@@ -1670,15 +1676,34 @@
     });
   }
 
+  function refreshDerivedUI() {
+    renderHeader();
+    renderStats();
+    renderAdoption();
+    renderAgents();
+    renderRequirementCoverage();
+    renderConflicts();
+    renderExecutionMap();
+    renderQueues();
+    renderSearchResults();
+  }
+  window.refreshDerivedUI = refreshDerivedUI;
+
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && lastInner && lastInner.isConnected) {
+          requestAnimationFrame(() => drawWeaveThreads(lastInner, lastVisibleTasks));
+        }
+      }
+    });
+    const mapEl = $("execution-map");
+    if (mapEl) ro.observe(mapEl);
+    const viewport = $("weave-viewport");
+    if (viewport) ro.observe(viewport);
+  }
+
   setupDialogs();
   setupMapControls();
-  renderHeader();
-  renderStats();
-  renderAdoption();
-  renderAgents();
-  renderRequirementCoverage();
-  renderConflicts();
-  renderExecutionMap();
-  renderQueues();
-  renderSearchResults();
+  refreshDerivedUI();
 })();
