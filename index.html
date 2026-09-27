@@ -14,7 +14,7 @@
         <div class="brand-row">
           <span class="brand">WeaveMap</span>
           <button id="update-button" class="version-badge" type="button" title="View safe update instructions">
-            <strong id="runtime-version">v1.1.0</strong>
+            <strong id="runtime-version">v1.2.1</strong>
             <span id="schema-version">state schema v4</span>
           </button>
         </div>
@@ -271,7 +271,7 @@
     <dialog id="update-dialog">
       <button class="dialog-close update-close" aria-label="Close">×</button>
       <div class="update-detail">
-        <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v1.1.0</span></div>
+        <div class="detail-kicker">WeaveMap <span id="update-runtime-version">v1.2.1</span></div>
         <h2>Update WeaveMap safely</h2>
         <p>Your project data lives in <code>weavemap/state.js</code>. A runtime update must never replace it with the blank template.</p>
         <ol><li>Back up <code>weavemap/state.js</code>.</li><li>Replace only <code>PROTOCOL.md</code>, <code>index.html</code>, <code>app.js</code>, <code>style.css</code>, <code>generate_hud.mjs</code>, and <code>generate_hud.ps1</code>.</li><li>Read the new protocol and migrate state only if the schema changed.</li><li>Validate before deleting the backup.</li></ol>
@@ -282,6 +282,7 @@
     </dialog>
   </main>
 
+  <script src="core.js"></script>
   <script src="state.js"></script>
   <script src="app.js"></script>
 </body>

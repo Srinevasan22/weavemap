@@ -1,25 +1,28 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "weavemap",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Repo-local project management and real-time DAG observer for AI coding agents and human reviewers.",
-  "license": "MIT",
   "author": {
     "name": "Srinevasan Sothynathan"
   },
-  "homepage": "https://github.com/Srinevasan22/weavemap#readme",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Srinevasan22/weavemap.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Srinevasan22/weavemap/issues"
-  },
-  "keywords": [
-    "project-management",
-    "weavemap",
-    "agentic-coding",
-    "dag",
-    "dependencies",
-    "antigravity-plugin"
-  ]
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "WeaveMap",
+        "shortDescription": "Project plans, dependencies and a live task HUD",
+        "longDescription": "Manage repository-local tasks, requirements, dependencies, human approvals and completion evidence with a live editable HUD or a portable HTML snapshot. Requires a file-capable agent environment and Node.js 18 or newer.",
+        "developerName": "Srinevasan Sothynathan",
+        "category": "Productivity",
+        "capabilities": [
+          "Interactive"
+        ],
+        "defaultPrompt": [
+          "Use WeaveMap to plan and track this project.",
+          "Analyze my WeaveMap tasks for inconsistencies and blockers.",
+          "Open the live WeaveMap HUD for this project."
+        ]
+      }
+    }
+  }
 }

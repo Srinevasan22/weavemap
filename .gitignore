@@ -1,0 +1,5 @@
+output/
+dist/
+.playwright-cli/
+weavemap_hud.html
+node_modules/

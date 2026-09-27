@@ -1,6 +1,6 @@
 # WeaveMap protocol
 
-**Runtime version:** `1.1.0`  
+**Runtime version:** `1.2.1`
 **Current state schema:** `4`
 
 WeaveMap is project management for AI agents, with a lightweight human observer UI.
@@ -31,6 +31,8 @@ Updatable runtime files:
 weavemap/PROTOCOL.md
 weavemap/index.html
 weavemap/app.js
+weavemap/core.js
+weavemap/live_server.mjs
 weavemap/style.css
 weavemap/generate_hud.mjs
 weavemap/generate_hud.ps1
@@ -55,7 +57,7 @@ Safe update procedure (triggered by "update weavemap" or manual upgrade):
 7. Delete the backup only after validation succeeds.
 8. Do not modify host application code as part of a WeaveMap runtime update unless separately requested.
 
-Runtime `v1.1.0` remains compatible with state schema `v4`; all new task fields are optional.
+Runtime `v1.2.1` remains compatible with state schema `v4`; all new task fields are optional.
 
 ## Agent and model identity
 
@@ -295,7 +297,7 @@ Rules:
 - Prefer a small dedicated approval task over hiding approval semantics inside a large implementation task.
 - An AI must never change `pending` to `approved` or `rejected` based on assumption.
 - An agent may persist approval/rejection when the user explicitly states that decision in the current interaction.
-- A pending approval gate appears under **Needs human** and is not part of the AI Ready Frontier once its dependencies are satisfied.
+- A pending or rejected approval gate appears under **Needs human** and is not part of the AI Ready Frontier once its dependencies are satisfied.
 - Downstream production tasks may depend on the approval gate.
 - If approval is rejected, preserve the reason in task notes and revise the plan before requesting approval again.
 - The observer can record human approval directly into the latest state file using merge-safe writes.

@@ -1,12 +1,14 @@
 {
   "name": "weavemap",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Repo-local project management and real-time DAG observer for AI coding agents and human reviewers.",
   "type": "module",
   "scripts": {
-    "test": "node generate_hud.mjs --check-only -p .",
+    "test": "node --test",
     "hud": "node generate_hud.mjs -p . -a ./weavemap_hud.html",
-    "validate": "node generate_hud.mjs --check-only -p ."
+    "validate": "node generate_hud.mjs --check-only -p .",
+    "start": "node generate_hud.mjs --serve -p .",
+    "plugin:build": "node scripts/package_plugin.mjs"
   },
   "keywords": [
     "project-management",
@@ -25,5 +27,8 @@
   },
   "bugs": {
     "url": "https://github.com/Srinevasan22/weavemap/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

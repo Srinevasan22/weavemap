@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const RUNTIME_VERSION = "1.1.0";
+  const RUNTIME_VERSION = "1.2.1";
   const CURRENT_SCHEMA_VERSION = 4;
   const APPROVAL_STATUSES = new Set(["pending", "approved", "rejected"]);
   const VERIFICATION_RESULTS = new Set(["passed", "failed", "not-run", "human-override", "not-applicable"]);
@@ -81,7 +81,7 @@
   function isNeedsHuman(task) {
     const gate = approval(task);
     return gate.required
-      && gate.status === "pending"
+      && gate.status !== "approved"
       && !resolvedStatuses.has(task.status)
       && task.status !== "blocked"
       && unmetDependencies(task).length === 0;
@@ -130,169 +130,7 @@
     return null;
   }
 
-  function validateState() {
-    const errors = [];
-    const visiting = new Set();
-    const visited = new Set();
-    const stateSchemaVersion = Number(data.schemaVersion || 0);
-    const requirementIdsSet = new Set(requirements.map((requirement) => requirement?.id).filter(Boolean));
-
-    if (stateSchemaVersion !== CURRENT_SCHEMA_VERSION) {
-      if (stateSchemaVersion < CURRENT_SCHEMA_VERSION) {
-        errors.push(`State schema v${stateSchemaVersion || "unknown"} is older than runtime v${RUNTIME_VERSION}, which expects schema v${CURRENT_SCHEMA_VERSION}. Run the safe update migration.`);
-      } else {
-        errors.push(`State schema v${stateSchemaVersion} is newer than runtime v${RUNTIME_VERSION}, which supports schema v${CURRENT_SCHEMA_VERSION}. Update the WeaveMap runtime before editing state.`);
-      }
-    }
-
-    for (const id of duplicateIds(tasks)) errors.push(`Duplicate task id ${id}.`);
-    for (const id of duplicateIds(requirements)) errors.push(`Duplicate requirement id ${id}.`);
-    for (const id of duplicateIds(decisions)) errors.push(`Duplicate decision id ${id}.`);
-
-    for (const task of tasks) {
-      const label = task?.id || "Unknown task";
-      if (!task?.id || !task?.title) errors.push("Every task needs an id and title.");
-      if (!taskStatuses.has(task?.status)) errors.push(`${label} has invalid status ${task?.status ?? "undefined"}.`);
-      if (!/^P[1-5]$/.test(String(task?.priority || ""))) errors.push(`${label} priority must be P1 through P5.`);
-      if (!Number.isInteger(task?.effort) || task.effort < 1 || task.effort > 5) errors.push(`${label} effort must be an integer from 1 through 5.`);
-      if (!Array.isArray(task?.dependsOn)) errors.push(`${label} dependsOn must be an array.`);
-      if (!validStringArray(task?.notes)) errors.push(`${label} notes must be an array of strings.`);
-      if (task?.origin !== undefined && !origins.has(task.origin)) errors.push(`${label} origin must be user, repo, or agent when present.`);
-
-      if (task?.requirementIds !== undefined) {
-        if (!validStringArray(task.requirementIds)) {
-          errors.push(`${label} requirementIds must be an array of strings.`);
-        } else {
-          for (const requirementId of task.requirementIds) {
-            if (!requirementIdsSet.has(requirementId)) errors.push(`${label} references missing requirement ${requirementId}.`);
-          }
-        }
-      }
-
-      if (task?.affectedPaths !== undefined && !validStringArray(task.affectedPaths)) {
-        errors.push(`${label} affectedPaths must be an array of strings.`);
-      }
-
-      if (task?.verification !== undefined) {
-        if (!task.verification || typeof task.verification !== "object" || Array.isArray(task.verification)) {
-          errors.push(`${label} verification must be an object.`);
-        } else if (task.verification.command !== undefined && (typeof task.verification.command !== "string" || !task.verification.command.trim())) {
-          errors.push(`${label} verification.command must be a non-empty string.`);
-        }
-      }
-
-      if (task?.completion !== undefined) {
-        if (!task.completion || typeof task.completion !== "object" || Array.isArray(task.completion)) {
-          errors.push(`${label} completion must be an object.`);
-        } else {
-          if (typeof task.completion.by !== "string" || !task.completion.by.trim()) errors.push(`${label} completion.by must be a non-empty string.`);
-          if (task.completion.commit !== undefined && typeof task.completion.commit !== "string") errors.push(`${label} completion.commit must be a string when present.`);
-          const verification = task.completion.verification;
-          if (verification !== undefined) {
-            if (typeof verification === "string") {
-              // Legacy v0.9 completion format remains supported.
-            } else if (!verification || typeof verification !== "object" || Array.isArray(verification)) {
-              errors.push(`${label} completion.verification must be a string or object.`);
-            } else {
-              if (!VERIFICATION_RESULTS.has(verification.result)) errors.push(`${label} completion.verification.result must be passed, failed, not-run, human-override, or not-applicable.`);
-              if (verification.command !== undefined && typeof verification.command !== "string") errors.push(`${label} completion.verification.command must be a string when present.`);
-              if (verification.note !== undefined && typeof verification.note !== "string") errors.push(`${label} completion.verification.note must be a string when present.`);
-              if (task.status === "done" && verification.result === "failed") errors.push(`${label} cannot be done with a failed verification result.`);
-            }
-          }
-        }
-      }
-
-      if (task?.humanApproval !== undefined) {
-        if (!task.humanApproval || typeof task.humanApproval !== "object" || Array.isArray(task.humanApproval)) {
-          errors.push(`${label} humanApproval must be an object.`);
-        } else {
-          if (task.humanApproval.required !== true) errors.push(`${label} humanApproval.required must be true when humanApproval is present.`);
-          if (!APPROVAL_STATUSES.has(task.humanApproval.status || "pending")) errors.push(`${label} humanApproval.status must be pending, approved, or rejected.`);
-        }
-      }
-
-      for (const dependencyId of dependencies(task)) {
-        if (!byId.has(dependencyId)) errors.push(`${label} depends on missing task ${dependencyId}.`);
-        if (dependencyId === task.id) errors.push(`${label} cannot depend on itself.`);
-      }
-    }
-
-    for (const requirement of requirements) {
-      const label = requirement?.id || "Unknown requirement";
-      if (!requirement?.id || !requirement?.text) errors.push("Every requirement needs an id and text.");
-      if (!requirementStatuses.has(requirement?.status)) errors.push(`${label} has invalid status ${requirement?.status ?? "undefined"}.`);
-      if (strictV4 && !origins.has(requirement?.origin)) errors.push(`${label} origin must be user, repo, or agent.`);
-      if (!validEvidence(requirement?.evidence)) errors.push(`${label} evidence must be an array of repository-relative strings.`);
-    }
-
-    const decisionIds = new Set(decisions.map((decision) => decision?.id).filter(Boolean));
-    for (const decision of decisions) {
-      const label = decision?.id || "Unknown decision";
-      if (!decision?.id || !decision?.title) errors.push("Every decision needs an id and title.");
-      if (!decisionStatuses.has(decision?.status)) errors.push(`${label} has invalid status ${decision?.status ?? "undefined"}.`);
-      if (strictV4 && !origins.has(decision?.origin)) errors.push(`${label} origin must be user, repo, or agent.`);
-      if (!validEvidence(decision?.evidence)) errors.push(`${label} evidence must be an array of repository-relative strings.`);
-      if (decision?.supersedes && !decisionIds.has(decision.supersedes)) errors.push(`${label} supersedes missing decision ${decision.supersedes}.`);
-      if (decision?.supersedes === decision?.id) errors.push(`${label} cannot supersede itself.`);
-    }
-
-    if (data.project?.entryMode && !["new", "adopted"].includes(data.project.entryMode)) {
-      errors.push('project.entryMode must be "new" or "adopted".');
-    }
-    if (data.project?.entryMode === "adopted" && !data.adoption) {
-      errors.push("Adopted projects should include an adoption baseline.");
-    }
-
-    if (data.project?.entryMode === "adopted" && data.adoption) {
-      const adoption = data.adoption;
-      for (const [kind, entries] of [["established", adoption.established], ["gaps", adoption.gaps], ["uncertainties", adoption.uncertainties]]) {
-        if (!Array.isArray(entries)) {
-          errors.push(`adoption.${kind} must be an array.`);
-          continue;
-        }
-        entries.forEach((entry, index) => {
-          if (strictV4 && (typeof entry !== "object" || !entry || Array.isArray(entry))) {
-            errors.push(`adoption.${kind}[${index}] must be a structured finding object in schema v4.`);
-            return;
-          }
-          if (typeof entry === "object" && entry) {
-            if (!entry.text) errors.push(`adoption.${kind}[${index}] needs text.`);
-            if (!validEvidence(entry.evidence)) errors.push(`adoption.${kind}[${index}] evidence must be an array of repository-relative strings.`);
-          }
-        });
-      }
-      if (Array.isArray(adoption.gaps)) {
-        adoption.gaps.forEach((gap, index) => {
-          if (typeof gap !== "object" || !gap) return;
-          if (!gapDispositions.has(gap.disposition)) errors.push(`adoption.gaps[${index}] disposition must be tracked, deferred, or accepted.`);
-          if (!Array.isArray(gap.taskIds)) {
-            errors.push(`adoption.gaps[${index}] taskIds must be an array.`);
-            return;
-          }
-          for (const taskId of gap.taskIds) {
-            if (!byId.has(taskId)) errors.push(`adoption.gaps[${index}] references missing task ${taskId}.`);
-          }
-          if (gap.disposition === "tracked" && gap.taskIds.length === 0) errors.push(`adoption.gaps[${index}] is tracked but has no taskIds.`);
-        });
-      }
-    }
-
-    function visit(id, path = []) {
-      if (visiting.has(id)) {
-        errors.push(`Dependency cycle detected: ${[...path, id].join(" → ")}.`);
-        return;
-      }
-      if (visited.has(id) || !byId.has(id)) return;
-      visiting.add(id);
-      for (const dependencyId of dependencies(byId.get(id))) visit(dependencyId, [...path, id]);
-      visiting.delete(id);
-      visited.add(id);
-    }
-
-    for (const task of tasks) visit(task.id);
-    return [...new Set(errors)];
-  }
+  const validateState = () => window.WeaveMapCore.validateState(data);
 
   function calculateWaves() {
     const memo = new Map();
@@ -317,8 +155,8 @@
     return memo;
   }
 
-  const stateErrors = validateState();
-  const waves = calculateWaves();
+  let stateErrors = validateState();
+  let waves = calculateWaves();
 
   function unblockCount(taskId) {
     return tasks.filter((task) => dependencies(task).includes(taskId)).length;
@@ -361,7 +199,8 @@
     $("update-runtime-version").textContent = `v${RUNTIME_VERSION}`;
     document.title = `${project.name || "Project"} · WeaveMap v${RUNTIME_VERSION}`;
 
-    if (!data.initialized) $("onboarding").classList.remove("hidden");
+    $("onboarding").classList.toggle("hidden", !!data.initialized);
+    $("validation").classList.toggle("hidden", !stateErrors.length);
     if (stateErrors.length) {
       $("validation").classList.remove("hidden");
       $("validation").innerHTML = `<strong>WeaveMap state needs attention.</strong><ul>${stateErrors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`;
@@ -380,6 +219,7 @@
 
     if ($("progress-label")) $("progress-label").textContent = data.project?.entryMode === "adopted" ? "Tracked progress" : "Progress";
     if ($("progress")) $("progress").textContent = `${progress}%`;
+    if ($("workstream-count")) $("workstream-count").textContent = new Set(tasks.map(task => task.workstream || "General")).size;
     if ($("current-wave")) $("current-wave").textContent = currentWave === null ? "—" : `Wave ${currentWave}`;
     if ($("ready-count")) $("ready-count").textContent = ready.length;
     if ($("waiting-count")) $("waiting-count").textContent = waiting.length;
@@ -616,8 +456,10 @@
 
   function populateMapFilters() {
     const select = $("filter-workstream");
+    const selected = select.value;
     const values = [...new Set(tasks.map((task) => task.workstream || "General"))].sort();
     select.replaceChildren(new Option("All workstreams", "all"), ...values.map((value) => new Option(value, value)));
+    select.value = values.includes(selected) ? selected : "all";
   }
 
   function taskSearchText(task) {
@@ -1010,9 +852,8 @@
   }
 
   function renderQueues() {
-    const active = tasks.filter((task) => task.status === "active" && !isNeedsHuman(task));
     const ready = tasks.filter(isReady);
-    const ranked = rankTasks([...active, ...ready]);
+    const ranked = rankTasks(ready);
     const recommended = ranked[0] || null;
     const blocked = tasks.filter(isBlocked).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
     const waiting = tasks.filter(isWaiting).sort((a, b) => (waves.get(a.id) || 0) - (waves.get(b.id) || 0));
@@ -1046,74 +887,13 @@
     renderList("search-results", matches.slice(0, 40), "No tasks match this search.");
   }
 
-  function parseStateSource(source) {
-    const raw = String(source);
-    const match = raw.match(/window\.WEAVEMAP\s*=\s*([\s\S]+?);?\s*$/);
-    if (!match) throw new Error("The selected file is not a valid WeaveMap state.js file.");
-    const payload = match[1].trim();
-    let parsed;
-    try {
-      parsed = JSON.parse(payload);
-    } catch {
-      parsed = Function(`"use strict"; return (${payload});`)();
-    }
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("state.js did not contain a valid WeaveMap state object.");
-    return parsed;
-  }
+  const parseStateSource = window.WeaveMapCore.parseStateSource;
 
   function serializeState(state) {
     return `window.WEAVEMAP = ${JSON.stringify(state, null, 2)};\n`;
   }
 
-  function mutateTask(state, taskId, action) {
-    if (Number(state.schemaVersion || 0) !== CURRENT_SCHEMA_VERSION) throw new Error(`This runtime expects state schema v${CURRENT_SCHEMA_VERSION}. Update or migrate WeaveMap before saving.`);
-    if (!Array.isArray(state.tasks)) throw new Error("The latest state.js has no valid tasks array.");
-    const task = state.tasks.find((entry) => entry?.id === taskId);
-    if (!task) throw new Error(`${taskId} no longer exists in the latest state.js. Reopen WeaveMap to see the current project state.`);
-    if (!Array.isArray(task.notes)) task.notes = [];
-
-    if (action.type === "note") task.notes.push(action.note);
-    if (action.type === "priority") task.priority = action.priority;
-    if (action.type === "approve") {
-      task.humanApproval = { ...(task.humanApproval || {}), required: true, status: "approved" };
-      task.notes.push(`Human: Approved this task${action.reason ? ` — ${action.reason}` : "."}`);
-    }
-    if (action.type === "reject") {
-      task.humanApproval = { ...(task.humanApproval || {}), required: true, status: "rejected" };
-      task.notes.push(`Human: Approval rejected — ${action.reason}`);
-    }
-    if (action.type === "status") {
-      task.status = action.status;
-      if (action.note) task.notes.push(`Human: ${action.note}`);
-      if (action.status === "done") {
-        const now = new Date().toISOString();
-        task.completedAt = now;
-        task.completion = {
-          by: "Human",
-          at: now,
-          verification: {
-            result: "human-override",
-            note: "Marked done through the WeaveMap observer."
-          }
-        };
-      } else if (action.status === "skipped") {
-        const now = new Date().toISOString();
-        task.completedAt = now;
-        task.completion = {
-          by: "Human",
-          at: now,
-          verification: {
-            result: "not-applicable",
-            note: "Task skipped through the WeaveMap observer."
-          }
-        };
-      } else if (action.status === "todo") {
-        delete task.completion;
-        delete task.completedAt;
-      }
-    }
-    return task;
-  }
+  const mutateTask = window.WeaveMapCore.mutateTask;
 
   function downloadStateFile(content) {
     const blob = new Blob([content], { type: "text/javascript;charset=utf-8" });
@@ -1187,6 +967,17 @@
   }
 
   async function persistMutation(taskId, action) {
+    if (window.WEAVEMAP_LIVE) {
+      const response = await fetch('/api/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-WeaveMap-Token': window.WEAVEMAP_LIVE.token },
+        body: JSON.stringify({ taskId, action, expectedRevision: liveRevision })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not save task.');
+      applyLiveState(result);
+      return { mode: 'direct', task: result.state.tasks.find(task => task.id === taskId) };
+    }
     return typeof window.showOpenFilePicker === "function"
       ? persistMutationDirect(taskId, action)
       : persistMutationFallback(taskId, action);
@@ -1194,9 +985,40 @@
 
   function syncMemoryTask(taskId, latestTask) {
     const memoryTask = byId.get(taskId);
-    if (!memoryTask) return;
+    if (!memoryTask || memoryTask === latestTask) return;
     Object.keys(memoryTask).forEach((key) => delete memoryTask[key]);
     Object.assign(memoryTask, latestTask);
+  }
+
+  let liveRevision = null;
+  function applyLiveState(result) {
+    const errors = window.WeaveMapCore.validateState(result.state);
+    if (errors.length) throw new Error(errors.join('\n'));
+    for (const [key, collection] of [['tasks', tasks], ['requirements', requirements], ['decisions', decisions], ['agents', agents]]) {
+      collection.splice(0, collection.length, ...result.state[key]);
+    }
+    Object.assign(data, result.state, { tasks, requirements, decisions, agents });
+    byId.clear(); tasks.forEach(task => byId.set(task.id, task));
+    requirementById.clear(); requirements.forEach(item => requirementById.set(item.id, item));
+    liveRevision = result.revision;
+    populateMapFilters();
+    refreshDerivedUI();
+  }
+
+  async function pollLiveState() {
+    if (!window.WEAVEMAP_LIVE) return;
+    const indicator = document.getElementById('live-state-status');
+    try {
+      const response = await fetch('/api/state', { headers: { 'X-WeaveMap-Token': window.WEAVEMAP_LIVE.token } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not read project state.');
+      // Keep the revision of the visible task while a human is editing it. The
+      // server rejects a stale save rather than silently applying changed gates.
+      if (!document.getElementById('task-dialog').open && result.revision !== liveRevision) applyLiveState(result);
+      indicator.textContent = document.getElementById('task-dialog').open && result.revision !== liveRevision
+        ? 'Project changed — close and reopen task before saving' : 'Live · connected';
+    } catch (error) { indicator.textContent = 'Live paused · ' + error.message; }
+    finally { setTimeout(pollLiveState, 1500); }
   }
 
   function mutationMessage(mode) {
@@ -1296,18 +1118,6 @@
     `;
   }
 
-  function refreshDerivedUI() {
-    renderStats();
-    renderRequirementCoverage();
-    renderConflicts();
-    renderExecutionMap();
-    renderQueues();
-    renderSearchResults();
-    if (typeof window.renderSidebarHud === "function") {
-      window.renderSidebarHud();
-    }
-  }
-
   function openTask(taskId) {
     const task = byId.get(taskId);
     if (!task) return;
@@ -1360,7 +1170,8 @@
 
     $("task-priority").addEventListener("change", (event) => runControl({ type: "priority", priority: event.target.value }, "Updating priority…"));
     if ($("approve-task")) $("approve-task").addEventListener("click", () => {
-      const reason = prompt("Optional approval note:") || "";
+      const reason = prompt("Optional approval note:");
+      if (reason === null) return;
       runControl({ type: "approve", reason }, "Recording approval…");
     });
     if ($("reject-task")) $("reject-task").addEventListener("click", () => {
@@ -1378,7 +1189,8 @@
       }
     });
     $("skip-task").addEventListener("click", () => {
-      const reason = prompt("Why is this task being skipped?") || "Skipped via observer.";
+      const reason = prompt("Why is this task being skipped?");
+      if (reason === null) return;
       runControl({ type: "status", status: "skipped", note: `Skipped — ${reason}` });
     });
     $("block-task").addEventListener("click", () => {
@@ -1693,6 +1505,8 @@
   }
 
   function refreshDerivedUI() {
+    stateErrors = validateState();
+    waves = calculateWaves();
     renderHeader();
     renderStats();
     renderAdoption();
@@ -1702,6 +1516,7 @@
     renderExecutionMap();
     renderQueues();
     renderSearchResults();
+    window.renderSidebarHud?.();
   }
   window.refreshDerivedUI = refreshDerivedUI;
 
@@ -1722,4 +1537,13 @@
   setupDialogs();
   setupMapControls();
   refreshDerivedUI();
+  if (window.WEAVEMAP_LIVE) {
+    const indicator = document.createElement('div');
+    indicator.id = 'live-state-status';
+    indicator.setAttribute('role', 'status');
+    indicator.style.cssText = 'padding:8px 16px;font-size:12px;color:var(--muted)';
+    indicator.textContent = 'Connecting to project…';
+    document.body.prepend(indicator);
+    pollLiveState();
+  }
 })();

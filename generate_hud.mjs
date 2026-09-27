@@ -10,7 +10,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import vm from 'node:vm';
+import './core.js';
+import { startLiveServer } from './live_server.mjs';
+const { parseStateSource, validateState: validateCore } = globalThis.WeaveMapCore;
 
 const ANSI = {
   reset: '\x1b[0m',
@@ -38,6 +40,8 @@ ${color('cyan', 'Options:')}
   -p, --project-path <dir>    Path to the project root or weavemap directory (default: .)
   -a, --artifact-path <file>   Destination HTML file path for the compiled HUD artifact
   -c, --check-only            Validate state.js schema and DAG without generating HTML
+  --serve                    Serve a live editable HUD on localhost
+  --port <number>            Local server port (default: 4173; 0 chooses a free port)
   -h, --help                  Show this help message
 
 ${color('cyan', 'Examples:')}
@@ -50,7 +54,9 @@ function parseArgs(args) {
   const options = {
     projectPath: '.',
     artifactPath: null,
-    checkOnly: false
+    checkOnly: false,
+    serve: false,
+    port: 4173
   };
 
   const positional = [];
@@ -61,10 +67,18 @@ function parseArgs(args) {
       process.exit(0);
     } else if (arg === '-c' || arg === '--check-only') {
       options.checkOnly = true;
+    } else if (arg === '--serve') {
+      options.serve = true;
+    } else if (arg === '--port') {
+      const raw = args[++i];
+      if (!/^\d+$/.test(raw || '') || Number(raw) > 65535) throw new Error('--port requires an integer from 0 through 65535');
+      options.port = Number(raw);
     } else if (arg === '-p' || arg === '--project-path') {
       options.projectPath = args[++i];
+      if (!options.projectPath || options.projectPath.startsWith('-')) throw new Error('--project-path requires a directory');
     } else if (arg === '-a' || arg === '--artifact-path') {
       options.artifactPath = args[++i];
+      if (!options.artifactPath || options.artifactPath.startsWith('-')) throw new Error('--artifact-path requires a destination');
     } else if (arg.startsWith('-')) {
       console.error(color('red', `Unknown option: ${arg}`));
       printHelp();
@@ -81,6 +95,7 @@ function parseArgs(args) {
     options.artifactPath = positional[1];
   }
 
+  if (options.checkOnly && options.serve) throw new Error('--serve cannot be combined with --check-only');
   return options;
 }
 
@@ -88,127 +103,9 @@ function parseArgs(args) {
  * Validates WeaveMap Schema v4 compliance & DAG acyclicity.
  */
 function validateState(state) {
-  const errors = [];
-  const warnings = [];
-
-  if (!state || typeof state !== 'object') {
-    errors.push('state.js must export an object wrapped in window.WEAVEMAP');
-    return { valid: false, errors, warnings };
-  }
-
-  if (!state.schemaVersion) {
-    warnings.push('Missing "schemaVersion". Recommended: schemaVersion: 4');
-  }
-
-  if (!state.project || typeof state.project !== 'object') {
-    errors.push('Missing required "project" object in state.js');
-  } else {
-    if (!state.project.name) warnings.push('Project missing "name" field');
-    if (!state.project.phase) warnings.push('Project missing "phase" field');
-  }
-
-  const tasks = state.tasks;
-  if (!Array.isArray(tasks)) {
-    errors.push('Missing required "tasks" array in state.js');
-    return { valid: errors.length === 0, errors, warnings };
-  }
-
-  const validStatuses = new Set(['todo', 'active', 'blocked', 'done', 'skipped']);
-  const seenIds = new Set();
-  const byId = new Map();
-
-  // Task schema checks
-  for (let i = 0; i < tasks.length; i++) {
-    const t = tasks[i];
-    const prefix = `Task[${i}]`;
-
-    if (!t.id || typeof t.id !== 'string') {
-      errors.push(`${prefix} missing string "id"`);
-      continue;
-    }
-
-    if (seenIds.has(t.id)) {
-      errors.push(`Duplicate task ID found: "${t.id}"`);
-    }
-    seenIds.add(t.id);
-    byId.set(t.id, t);
-
-    if (!t.title) errors.push(`Task "${t.id}" missing required "title"`);
-    if (!t.workstream) warnings.push(`Task "${t.id}" missing "workstream" (defaulting to "General")`);
-    
-    if (!t.status) {
-      errors.push(`Task "${t.id}" missing "status"`);
-    } else if (!validStatuses.has(t.status)) {
-      errors.push(`Task "${t.id}" has invalid status "${t.status}". Allowed: todo, active, blocked, done, skipped`);
-    }
-
-    if (t.status === 'done' && !t.completedAt && !t.completion?.at) {
-      warnings.push(`Task "${t.id}" marked "done" but missing "completedAt" ISO timestamp. Tasks with timestamps sort accurately in the Completed Archive.`);
-    }
-
-    if (t.priority && !/^P[1-5]$/i.test(t.priority)) {
-      warnings.push(`Task "${t.id}" has non-standard priority "${t.priority}". Recommended: P1 through P5`);
-    }
-
-    if (t.dependsOn !== undefined && !Array.isArray(t.dependsOn)) {
-      errors.push(`Task "${t.id}" "dependsOn" must be an array of task IDs`);
-    }
-  }
-
-  // Dependency resolution check
-  for (const t of tasks) {
-    if (Array.isArray(t.dependsOn)) {
-      for (const depId of t.dependsOn) {
-        if (!byId.has(depId)) {
-          errors.push(`Task "${t.id}" depends on non-existent task "${depId}"`);
-        }
-      }
-    }
-  }
-
-  // DAG Cycle Detection (DFS)
-  const visited = new Set();
-  const recStack = new Set();
-  const pathStack = [];
-
-  function detectCycle(id) {
-    visited.add(id);
-    recStack.add(id);
-    pathStack.push(id);
-
-    const task = byId.get(id);
-    const deps = Array.isArray(task?.dependsOn) ? task.dependsOn : [];
-
-    for (const depId of deps) {
-      if (!byId.has(depId)) continue;
-      if (!visited.has(depId)) {
-        if (detectCycle(depId)) return true;
-      } else if (recStack.has(depId)) {
-        const cycleStart = pathStack.indexOf(depId);
-        const cycleChain = pathStack.slice(cycleStart).concat(depId).join(' -> ');
-        errors.push(`Circular dependency detected: ${cycleChain}`);
-        return true;
-      }
-    }
-
-    recStack.delete(id);
-    pathStack.pop();
-    return false;
-  }
-
-  for (const id of byId.keys()) {
-    if (!visited.has(id)) {
-      if (detectCycle(id)) break;
-    }
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
-    taskCount: tasks.length,
-    doneCount: tasks.filter(t => t.status === 'done' || t.status === 'completed').length
-  };
+  const errors = validateCore(state);
+  return { valid: !errors.length, errors, warnings: [], taskCount: state?.tasks?.length || 0,
+    doneCount: state?.tasks?.filter(t => ['done', 'skipped'].includes(t?.status)).length || 0 };
 }
 
 /**
@@ -1265,20 +1162,15 @@ const HUD_SCRIPT = `
     const human = [];
     const blocked = [];
 
+    const active = [];
     tasks.forEach(t => {
-      if (resolved.has(t.status)) {
-        done.push(t);
-      } else if (t.status === 'blocked') {
-        blocked.push(t);
-      } else if (t.humanApproval?.required && t.humanApproval?.status === 'pending') {
-        human.push(t);
-      } else if (!isUnmet(t)) {
-        ready.push(t);
-      } else {
-        waiting.push(t);
-      }
+      const group = window.WeaveMapCore.taskState(t, tasks);
+      ({ done, blocked, approval: human, ready, waiting, active })[group].push(t);
     });
- 
+    for (const list of [ready, waiting, human, blocked, active]) {
+      list.sort((a, b) => String(a.priority).localeCompare(String(b.priority)) || (a.effort || 3) - (b.effort || 3));
+    }
+
     // Sort completed tasks in order of completed time: Most recent first!
     const taskIndexMap = new Map(tasks.map((t, idx) => [t.id, idx]));
     const depthMap = new Map();
@@ -1324,8 +1216,8 @@ const HUD_SCRIPT = `
       return timeOf(b) - timeOf(a); // Descending (most recent first)
     });
 
-    const total = tasks.length || 1;
-    const donePct = Math.round((done.length / total) * 100);
+    const total = tasks.length;
+    const donePct = Math.round((done.length / (total || 1)) * 100);
 
     const container = document.getElementById('hud-sidebar-view');
     if (!container) return;
@@ -1337,7 +1229,7 @@ const HUD_SCRIPT = `
     let html = \`
       <div class="hud-metrics-card">
         <div class="hud-metrics-top">
-          <span class="hud-project-name">\${projectName}</span>
+          <span class="hud-project-name">\${hudEscape(projectName)}</span>
           <span class="hud-progress-pct">\${done.length}/\${total} Done (\${donePct}%)</span>
         </div>
         <div class="hud-progress-bar-bg">
@@ -1360,7 +1252,7 @@ const HUD_SCRIPT = `
             <span class="hud-stat-val">\${blocked.length}</span>
             <span class="hud-stat-lbl">Blocked</span>
           </div>
-          <div class="hud-stat-chip done" data-tooltip="Completed Archive: Tasks finished and verified with passing test evidence.">
+          <div class="hud-stat-chip done" data-tooltip="Completed Archive: Tasks marked done or skipped. Open a task to inspect its evidence.">
             <span class="hud-stat-val">\${done.length}</span>
             <span class="hud-stat-lbl">Done</span>
           </div>
@@ -1376,6 +1268,9 @@ const HUD_SCRIPT = `
         <span class="hud-section-count" style="background:#f4efff; color:#6d28d9; border-color:#ddd6fe;">\${human.length}</span>
       </div>
       \${renderCategoryList(human, 'human', 'human')}
+
+      <div class="hud-section-header"><div class="hud-section-title">In progress</div><span class="hud-section-count">\${active.length}</span></div>
+      \${renderCategoryList(active, 'active', 'active')}
 
       <!-- 2. Ready Frontier -->
       <div class="hud-section-header" style="margin-top: 6px;">
@@ -1449,9 +1344,13 @@ const HUD_SCRIPT = `
     });
   }
 
+  function hudEscape(value = '') {
+    return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+  }
+
   function renderHudCard(t, statusGroup) {
     const isDone = statusGroup === 'done';
-    const pClass = (t.priority || 'P2').toLowerCase();
+    const pClass = /^P[1-5]$/.test(t.priority) ? t.priority.toLowerCase() : 'p2';
 
     const verifyCmd = t.verification?.command || '';
     const acceptance = Array.isArray(t.acceptance) ? t.acceptance : [];
@@ -1463,17 +1362,17 @@ const HUD_SCRIPT = `
         <div class="hud-card-header" onclick="toggleCard(this.closest('.hud-card'))">
           <div style="flex:1; min-width:0;">
             <div class="hud-card-id-row">
-              <span class="hud-id \${statusGroup}">\${t.id}</span>
-              <span class="hud-pbadge \${pClass}">\${t.priority || 'P2'}</span>
-              <span class="hud-ws-pill">\${t.workstream || 'General'}</span>
+              <span class="hud-id \${statusGroup}">\${hudEscape(t.id)}</span>
+              <span class="hud-pbadge \${pClass}">\${hudEscape(t.priority || 'P2')}</span>
+              <span class="hud-ws-pill">\${hudEscape(t.workstream || 'General')}</span>
               \${isDone && (t.completedAt || t.completion?.at) ? \`
-                <span class="hud-time-pill" title="Completed: \${t.completedAt || t.completion?.at}">
+                <span class="hud-time-pill" title="Completed: \${hudEscape(t.completedAt || t.completion?.at)}">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  \${formatCompletedDate(t.completedAt || t.completion?.at)}
+                  \${hudEscape(formatCompletedDate(t.completedAt || t.completion?.at))}
                 </span>
               \` : ''}
             </div>
-            <h4 class="hud-card-title \${isDone ? 'done' : ''}">\${t.title}</h4>
+            <h4 class="hud-card-title \${isDone ? 'done' : ''}">\${hudEscape(t.title)}</h4>
           </div>
           <button type="button" class="hud-chevron-btn" aria-label="Toggle details">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
@@ -1481,14 +1380,15 @@ const HUD_SCRIPT = `
         </div>
 
         <div class="hud-card-details">
-          \${t.goal ? \`<div class="hud-desc"><strong>Goal:</strong> \${t.goal}</div>\` : ''}
-          \${t.spec ? \`<div class="hud-desc" style="color:var(--muted);">\${t.spec}</div>\` : ''}
+          <button type="button" class="secondary-button" data-task-id="\${hudEscape(t.id)}" onclick="window.openTask(this.dataset.taskId)">Manage task</button>
+          \${t.goal ? \`<div class="hud-desc"><strong>Goal:</strong> \${hudEscape(t.goal)}</div>\` : ''}
+          \${t.spec ? \`<div class="hud-desc" style="color:var(--muted);">\${hudEscape(t.spec)}</div>\` : ''}
 
           \${verifyCmd ? \`
-            <div class="hud-cmd-pill" onclick="copyCmd('\${verifyCmd}', event)" title="Click to copy command">
+            <div class="hud-cmd-pill" data-command="\${hudEscape(verifyCmd)}" onclick="copyCmd(this.dataset.command, event)" title="Click to copy command">
               <div class="hud-cmd-left">
                 <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                <span>\${verifyCmd}</span>
+                <span>\${hudEscape(verifyCmd)}</span>
               </div>
               <span class="hud-copy-hint">Copy</span>
             </div>
@@ -1498,14 +1398,14 @@ const HUD_SCRIPT = `
             <div class="hud-acceptance-box">
               <div class="hud-acceptance-title">Acceptance Criteria</div>
               <ul class="hud-acceptance-list">
-                \${acceptance.map(a => \`<li>\${a}</li>\`).join('')}
+                \${acceptance.map(a => \`<li>\${hudEscape(a)}</li>\`).join('')}
               </ul>
             </div>
           \` : ''}
 
           \${notes.length ? \`
             <div style="margin-top:6px; font-size:10.5px; color:var(--text); font-style:italic;">
-              <strong>Note:</strong> \${notes[notes.length - 1]}
+              <strong>Note:</strong> \${hudEscape(notes[notes.length - 1])}
             </div>
           \` : ''}
 
@@ -1513,10 +1413,10 @@ const HUD_SCRIPT = `
             <div class="hud-meta-left">
               \${affected ? \`
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <span>\${affected}</span>
+                <span>\${hudEscape(affected)}</span>
               \` : ''}
             </div>
-            <span>Effort: \${t.effort || 1} pts</span>
+            <span>Effort: \${hudEscape(t.effort || 1)} pts</span>
           </div>
         </div>
       </div>
@@ -1574,9 +1474,9 @@ async function main() {
   const statePath = path.join(weaveDir, 'state.js');
   const appPath = path.join(weaveDir, 'app.js');
 
-  if (!fs.existsSync(indexPath) || !fs.existsSync(statePath)) {
+  if (![indexPath, statePath, stylePath, appPath, path.join(weaveDir, 'core.js')].every(p => fs.existsSync(p))) {
     console.error(color('red', `Error: WeaveMap files not found in ${options.projectPath} or ${weaveDir}`));
-    console.error(`Expected files: index.html, state.js, style.css, app.js`);
+    console.error(`Expected files: index.html, state.js, style.css, app.js, core.js`);
     process.exit(1);
   }
 
@@ -1584,18 +1484,19 @@ async function main() {
   const indexHtml = fs.readFileSync(indexPath, 'utf8');
   const styleCss = fs.existsSync(stylePath) ? fs.readFileSync(stylePath, 'utf8') : '';
   const stateJs = fs.readFileSync(statePath, 'utf8');
-  const appJs = fs.existsSync(appPath) ? fs.readFileSync(appPath, 'utf8') : '';
+  const appJs = fs.readFileSync(appPath, 'utf8');
+  const coreJs = fs.readFileSync(path.join(weaveDir, 'core.js'), 'utf8');
 
   // 3. Parse state.js in isolated sandbox
-  const sandbox = { window: {} };
+  let parsedState;
   try {
-    vm.runInNewContext(stateJs, sandbox);
+    parsedState = parseStateSource(stateJs);
   } catch (err) {
     console.error(color('red', `Failed to parse ${statePath}:`), err.message);
     process.exit(1);
   }
 
-  const parsedState = sandbox.window.WEAVEMAP;
+
 
   // 4. Validate Schema & DAG
   const validation = validateState(parsedState);
@@ -1637,21 +1538,26 @@ async function main() {
   // 6. Bundle HUD
   let bundled = indexHtml.replace(
     '<link rel="stylesheet" href="style.css">',
-    `<style>\n${styleCss}\n${HUD_CSS}\n</style>`
+    () => `<style>\n${styleCss}\n${HUD_CSS}\n</style>`
   );
   bundled = bundled.replace(
     '<script src="state.js"></script>',
-    `<script>\n${stateJs}\n</script>`
+    () => `<script>window.WEAVEMAP = ${JSON.stringify(parsedState).replaceAll("<", "\\u003c")};</script>`
   );
   bundled = bundled.replace(
     '<script src="app.js"></script>',
-    `<script>\n${appJs}\n</script>\n${HUD_SCRIPT}`
+    () => `<script>\n${appJs}\n</script>\n${HUD_SCRIPT}`
   );
   bundled = bundled.replace(
     '<body>',
     `<body class="hud-mode-active">\n${HUD_HTML_BAR}`
   );
 
+  bundled = bundled.replace('<script src="core.js"></script>', () => '<script>' + coreJs + '</script>');
+  if (options.serve) {
+    startLiveServer({ statePath, html: bundled, port: options.port });
+    return;
+  }
   // 7. Write output
   fs.writeFileSync(destPath, bundled, 'utf8');
   console.log(color('green', `✔ `) + `Successfully generated HUD: ${color('cyan', destPath)}`);
